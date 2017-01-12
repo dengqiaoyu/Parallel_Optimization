@@ -62,7 +62,7 @@ void* workerThreadStart(void* threadArgs) {
 
     float dx = (x1 - x0) / width;
     float dy = (y1 - y0) / height;
-
+    // Use Round Robin raw by raw
     for (int j = startRow + threadId; j < endRow; j += numThreads)
     {
         for (int i = 0; i < width; i++)
