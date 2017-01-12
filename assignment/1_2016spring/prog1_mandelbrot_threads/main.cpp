@@ -144,6 +144,7 @@ int main(int argc, char** argv) {
     memset(output_thread, 0, width * height * sizeof(int));
     double minThread = 1e30;
     for (int i = 0; i < 3; ++i) {
+        printf("\nRound %d:\n", i + 1);
         double startTime = CycleTimer::currentSeconds();
         mandelbrotThread(numThreads, x0, y0, x1, y1, width, height, maxIterations, output_thread);
         double endTime = CycleTimer::currentSeconds();

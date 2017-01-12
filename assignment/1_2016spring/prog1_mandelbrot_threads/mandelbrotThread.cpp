@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <pthread.h>
+#include <algorithm>
 
 #include "CycleTimer.h"
 
@@ -41,6 +42,8 @@ static inline int mandel(float c_re, float c_im, int count)
 //
 // Thread entrypoint.
 void* workerThreadStart(void* threadArgs) {
+    double minThread = 1e30;
+    double startTime = CycleTimer::currentSeconds();
 
     WorkerArgs* args = static_cast<WorkerArgs*>(threadArgs);
     float x0 = args->x0;
@@ -71,6 +74,10 @@ void* workerThreadStart(void* threadArgs) {
             output[index] = mandel(x, y, maxIterations);
         }
     }
+
+    double endTime = CycleTimer::currentSeconds();
+    minThread = std::min(minThread, endTime - startTime);
+    printf("Thread %d run time: %f ms\n", threadId, minThread * 1000);
 
     return NULL;
 }
