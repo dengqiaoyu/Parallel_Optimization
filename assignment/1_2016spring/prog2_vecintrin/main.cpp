@@ -237,12 +237,66 @@ void clampedExpSerial(float* values, int* exponents, float* output, int N) {
 }
 
 void clampedExpVector(float* values, int* exponents, float* output, int N) {
-  // TODO: Implement your vectorized version of clampedExpSerial here
+    // TODO: Implement your vectorized version of clampedExpSerial here
+    __cmu418_vec_float x;
+    __cmu418_vec_int y;
+    __cmu418_vec_float result = _cmu418_vset_float(9.999999f);
+    __cmu418_vec_float zero_float = _cmu418_vset_float(0.f);
+    __cmu418_vec_int zero_int = _cmu418_vset_int(0);
+    __cmu418_vec_float one_float = _cmu418_vset_float(1.f);
+    __cmu418_vec_int one_int = _cmu418_vset_int(1);
+    __cmu418_mask maskAll, maskIsZero, maskIsNotZero, maskIsNotNegative;
 
-  for (int i=0; i<N; i+=VECTOR_WIDTH) {
+    for (int i=0; i < N; i += VECTOR_WIDTH) {
+        if (i + VECTOR_WIDTH > N ) {
+            VECTOR_WIDTH = N - i;
+        }
 
-  }
+        // All Data that is within bound, always all ones
+        maskAll = _cmu418_init_ones(VECTOR_WIDTH);
 
+        // All zeros
+        maskIsZero = _cmu418_init_ones(0);
+
+        // Load vector of values from contiguous memory addresses
+        _cmu418_vload_float(x, values + i, maskAll);    // x = values[i]
+
+        // Load vector of exponents from contiguous memory addresses
+        _cmu418_vload_int(y, exponents + i, maskAll);    // y = exponents[i]
+
+        // Set mask according to predicate
+        _cmu418_veq_float(maskIsZero, y, zero_float, maskAll);    // if (y == 0) {
+
+        // Execute instruction using mask ("if" clause)
+        _cmu418_vmove_float(result, one_float, maskIsZero);    // output = 1.f
+
+        // Inverse maskIsZero to generate "else" mask
+        maskIsNotZero = _cmu418_mask_and(_cmu418_mask_not(maskIsZero), maskAll);    // } else {
+        __cmu418_mask maskIsGreaterThanZero;
+        maskIsGreaterThanZero = maskIsNotZero;
+
+        // Execute instruction in "else" clause
+        __cmu418_vec_float resultTemp = __cmu418_vec_float(0.f);    // float result;
+        _cmu418_vmove_float(resultTemp, x, maskIsGreaterThanZero);    // reslut = x;
+
+        __cmu418_vec_int count = __cmu418_vec_int(0);    // int count;
+        _cmu418_vsub_int(count, y, one_int, maskIsGreaterThanZero); // count = y - 1;
+
+        _cmu418_vgt_int(maskIsGreaterThanZero, count, zero_int, maskIsGreaterThanZero);
+        while (_cmu418_cntbits(maskIsGreaterThanZero) > 0)
+        {
+            _cmu418_vmult_float(resultTemp, resultTemp, x, maskIsGreaterThanZero);
+            _cmu418_vsub_int(count, y, one_int, maskIsGreaterThanZero); // count = y - 1;
+            _cmu418_vgt_int(maskIsGreaterThanZero, count, zero_int, maskIsGreaterThanZero);
+        }
+
+        _cmu418_mask maskIsLessThan9f = _cmu418_init_ones(0);
+        _cmu418_vlt_float(maskIsLessThan9f, resultTemp, result, maskIsNotZero);
+
+        _cmu418_vmove_float(result, resultTemp, maskIsLessThan9f);
+
+        _cmu418_vstore_float(output + i, result, maskAll);
+    }
 }
 
 float arraySumSerial(float* values, int N) {
