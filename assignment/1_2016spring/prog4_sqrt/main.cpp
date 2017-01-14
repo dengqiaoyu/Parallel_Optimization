@@ -32,6 +32,15 @@ int main() {
         // random input values
         values[i] = .001f + 2.998f * static_cast<float>(rand()) / RAND_MAX;
         // TODO: Try different input values here.
+        values[i] = 2.998f;
+        //if (i % 4 == 0)
+        //{
+        //    values[i] = 2.998f;
+        //}
+        //else
+        //{
+        //    values[i] = 1.0f;
+        //}
         output[i] = 0.f;
     }
 
