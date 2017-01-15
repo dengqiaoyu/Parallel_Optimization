@@ -9,6 +9,8 @@
 using namespace ispc;
 
 extern void sqrtSerial(int N, float startGuess, float* values, float* output);
+extern void sqrtSerialV2(int N, float startGuess, float* values, float* output);
+
 
 static void verifyResult(int N, float* result, float* gold) {
     for (int i=0; i<N; i++) {
@@ -32,7 +34,7 @@ int main() {
         // random input values
         values[i] = .001f + 2.998f * static_cast<float>(rand()) / RAND_MAX;
         // TODO: Try different input values here.
-        values[i] = 2.998f;
+        // values[i] = 2.998f;
         //if (i % 4 == 0)
         //{
         //    values[i] = 2.998f;
@@ -63,6 +65,31 @@ int main() {
     printf("[sqrt serial]:\t\t[%.3f] ms\n", minSerial * 1000);
 
     verifyResult(N, output, gold);
+
+    for (unsigned int i = 0; i < N; ++i)
+        output[i] = 0;
+
+
+    // sqrtSerialV2
+    double minSerialV2 = 1e30;
+    for (int i = 0; i < 3; ++i) {
+        double startTime = CycleTimer::currentSeconds();
+        sqrtSerialV2(N, initialGuess, values, output);
+        double endTime = CycleTimer::currentSeconds();
+        minSerialV2 = std::min(minSerialV2, endTime - startTime);
+    }
+
+    printf("[sqrt serialV2]:\t[%.3f] ms\n", minSerialV2 * 1000);
+
+    verifyResult(N, output, gold);
+
+    printf("\t\t\t\t(%.2fx speedup from serialV2)\n", minSerial/minSerialV2);
+
+    for (unsigned int i = 0; i < N; ++i)
+        output[i] = 0;
+
+
+
 
     //
     // Compute the image using the ispc implementation; report the minimum

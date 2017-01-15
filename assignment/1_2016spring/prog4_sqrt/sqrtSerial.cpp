@@ -27,3 +27,27 @@ void sqrtSerial(int N,
     }
 }
 
+void sqrtSerialV2(int N,
+                  float initialGuess,
+                  float values[],
+                  float output[])
+{
+    static const float kThreshold = 0.00001f;
+
+    for (int i = 0; i < N; i ++)
+    {
+        float x = values[i];
+        float guess  = initialGuess;
+
+        float error = fabs(guess * guess - x);
+
+        while (error > kThreshold)
+        {
+            guess = 0.5f * (guess + x / guess);
+            error = fabs(guess * guess - x);
+        }
+
+        output[i] = guess;
+    }
+}
+
