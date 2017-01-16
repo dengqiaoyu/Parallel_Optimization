@@ -10,6 +10,9 @@ using namespace ispc;
 
 extern void sqrtSerial(int N, float startGuess, float* values, float* output);
 extern void sqrtSerialV2(int N, float startGuess, float* values, float* output);
+extern void sqrtAVX(int N, float startGuess, float* values, float* output);
+
+
 
 
 static void verifyResult(int N, float* result, float* gold) {
@@ -128,6 +131,31 @@ int main() {
 
     printf("\t\t\t\t(%.2fx speedup from ISPC)\n", minSerial/minISPC);
     printf("\t\t\t\t(%.2fx speedup from task ISPC)\n", minSerial/minTaskISPC);
+
+    // Clear out the buffer
+    for (unsigned int i = 0; i < N; ++i)
+        output[i] = 0;
+
+    //
+    // Tasking version of the AVX code
+    //
+    double minAVX = 1e30;
+    for (int i = 0; i < 3; ++i) {
+        double startTime = CycleTimer::currentSeconds();
+        sqrtAVX(N, initialGuess, values, output);
+        double endTime = CycleTimer::currentSeconds();
+        minAVX = std::min(minAVX, endTime - startTime);
+    }
+
+    printf("[sqrt avx]:\t\t[%.3f] ms\n", minAVX * 1000);
+
+    verifyResult(N, output, gold);
+
+    printf("\t\t\t\t(%.2fx speedup from AVX over Serial)\n", minSerial/minAVX);
+    printf("\t\t\t\t(%.2fx speedup from AVX over ISPC)\n", minISPC/minAVX);
+    printf("\t\t\t\t(%.2fx speedup from AVX over ISPC task)\n", minTaskISPC/minAVX);
+    printf("\t\t\t\t(%.2fx speedup from AVX over SerialV2)\n", minSerialV2/minAVX);
+
 
     delete[] values;
     delete[] output;
