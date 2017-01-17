@@ -48,7 +48,32 @@
 
    In that case, the computaion cost for 1.0f will be unimportant for both serial version and ISPC version, so the main cost would be computing 2.998f. Since for each 4 elements there will be a high cost, the total number of  loading 2.998f for serial and ISPC version is equal. In the most ideal case, oonly one ALU in the core will be utilized while other ALU will stay idle since 1.0f is very easy to compute its root, and there will be no speedup in ISPC compared with serial version. However, in fact, for this type of input, the ISPC version would be even worse, because SIMD it own has some overhead when being executed.
 
-4. ​
 
+## Program 5
+
+1. What speedup from using ISPC with tasks do you observe? Explain the performance of this program. Do you think it can be improved?
+
+   ```
+   [saxpy serial]:         [27.641] ms     [10.782] GB/s   [1.447] GFLOPS
+   [saxpy ispc]:           [27.555] ms     [10.815] GB/s   [1.452] GFLOPS
+   [saxpy task ispc]:      [28.277] ms     [10.539] GB/s   [1.415] GFLOPS
+                                   (0.97x speedup from use of tasks)
+                                   (1.00x speedup from ISPC)
+                                   (0.98x speedup from task ISPC)
+   ```
+
+   It shows that neighter ISPC or ISPC with task improve the performance over the serial version.
+
+   The reason why it cannot be improved is that the original serial version:
+
+   ```c
+   for (int i=0; i<N; i++) {
+           result[i] = scale * X[i] + Y[i];
+       }
+   ```
+
+   It has 3 memory refrencing for every element in the array including load x, load y and store to result. It spends most of its time wating on memory even if it can exchange to another thread when waiting for data, because it is bandwidth bounded. So, this program achieves low ALU utilization even it uses SIMD or muti-thread algorithm, the time it saves on computing is far less than the time used in waiting data. I think it can be improved.
+
+2. 123
 
 
