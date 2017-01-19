@@ -11,6 +11,11 @@ extern void mandelbrotSerial(
     int maxIterations,
     int output[]);
 
+extern  void mandelbrot2Thread(
+    float x0, float y0, float x1, float y1,
+    int width, int height,
+    int maxIterations, int output[]);
+
 extern void mandelbrotThread(
     int numThreads,
     float x0, float y0, float x1, float y1,
@@ -120,6 +125,7 @@ int main(int argc, char** argv) {
 
 
     int* output_serial = new int[width*height];
+    int* output_2thread = new int[width*height];
     int* output_thread = new int[width*height];
 
     //
@@ -138,6 +144,20 @@ int main(int argc, char** argv) {
     printf("[mandelbrot serial]:\t\t[%.3f] ms\n", minSerial * 1000);
     writePPMImage(output_serial, width, height, "mandelbrot-serial.ppm", maxIterations);
 
+    memset(output_2thread, 0, width * height * sizeof(int));
+    double min2Thread = 1e30;
+    for (int i = 0; i < 5; ++i) {
+        printf("\nRound %d:\n", i + 1);
+        double startTime = CycleTimer::currentSeconds();
+        mandelbrot2Thread(x0, y0, x1, y1, width, height, maxIterations, output_2thread);
+        double endTime = CycleTimer::currentSeconds();
+        min2Thread = std::min(min2Thread, endTime - startTime);
+    }
+
+    printf("[mandelbrot 2 threads]:\t\t[%.3f] ms\n", min2Thread * 1000);
+    writePPMImage(output_2thread, width, height, "mandelbrot-2threads.ppm", maxIterations);
+
+
     //
     // Run the threaded version
     //
@@ -154,19 +174,31 @@ int main(int argc, char** argv) {
     printf("[mandelbrot thread]:\t\t[%.3f] ms\n", minThread * 1000);
     writePPMImage(output_thread, width, height, "mandelbrot-thread.ppm", maxIterations);
 
-    if (! verifyResult (output_serial, output_thread, width, height)) {
-        printf ("Error : Output from threads does not match serial output\n");
+    if (! verifyResult (output_serial, output_2thread, width, height)) {
+        printf ("Error : Output from 2 threads does not match serial output\n");
 
         delete[] output_serial;
+        delete[] output_2thread;
         delete[] output_thread;
 
         return 1;
     }
 
+    if (! verifyResult (output_serial, output_thread, width, height)) {
+        printf ("Error : Output from threads does not match serial output\n");
+
+        delete[] output_serial;
+        delete[] output_2thread;
+        delete[] output_thread;
+
+        return 1;
+    }
     // compute speedup
+    printf("\t\t\t\t(%.2fx speedup from spatial decomposition 2 threads)\n", minSerial/min2Thread);
     printf("\t\t\t\t(%.2fx speedup from %d threads)\n", minSerial/minThread, numThreads);
 
     delete[] output_serial;
+    delete[] output_2thread;
     delete[] output_thread;
 
     return 0;

@@ -4,7 +4,7 @@
 
 2. produce a graph of speedup compared to the reference sequential implementation as a function of the number of cores used FOR VIEW 1. Is speedup linear in the number of cores used? In your writeup hypothesize why this is (or is not) the case?
 
-   ​
+   ![prog1_q2](/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/1/prog1_mandelbrot_threads/prog1_q2.png)
 
    No, it is far and far away from linear as we can see from the blue line in the figure above.
 
@@ -14,32 +14,44 @@
 
    ```
    Round 1:
-   Thread 1 run time: 73.823689 ms
-   Thread 3 run time: 73.829426 ms
-   Thread 2 run time: 73.879259 ms
-   Thread 0 run time: 74.079232 ms
+   Thread 0 run time: 55.341430 ms
+   Thread 1 run time: 91.689474 ms
+   Thread 2 run time: 106.188526 ms
+   Thread 3 run time: 106.812619 ms
 
    Round 2:
-   Thread 1 run time: 71.373981 ms
-   Thread 2 run time: 71.391113 ms
-   Thread 3 run time: 82.481008 ms
-   Thread 0 run time: 82.883167 ms
+   Thread 0 run time: 55.839582 ms
+   Thread 1 run time: 66.282260 ms
+   Thread 2 run time: 69.522140 ms
+   Thread 3 run time: 71.892980 ms
 
    Round 3:
-   Thread 1 run time: 71.354900 ms
-   Thread 2 run time: 71.394937 ms
-   Thread 3 run time: 82.280435 ms
-   Thread 0 run time: 82.683363 ms
-   [mandelbrot thread]:            [74.159] ms
+   Thread 0 run time: 55.286306 ms
+   Thread 1 run time: 55.666321 ms
+   Thread 3 run time: 57.575151 ms
+   Thread 2 run time: 57.705027 ms
+
+   Round 4:
+   Thread 0 run time: 55.280241 ms
+   Thread 1 run time: 55.275218 ms
+   Thread 3 run time: 55.298766 ms
+   Thread 2 run time: 55.907081 ms
+
+   Round 5:
+   Thread 0 run time: 55.262136 ms
+   Thread 1 run time: 55.276773 ms
+   Thread 2 run time: 55.305860 ms
+   Thread 3 run time: 55.319156 ms
+   [mandelbrot thread]:            [55.369] ms
    Wrote image file mandelbrot-thread.ppm
-                                   (3.48x speedup from 4 threads)
+                                   (3.54x speedup from 4 threads)
    ```
 
    From the result above, each core completes their task for different duration, so there is some ALU that may not work while some others is still busy, the performance of cores are not fully utilized.
 
 4. In your writeup, describe your approach and report the final 4-thread speedup obtained.
 
-   Since mandelbrot has "connect" property which means it is continuous everywhere, so we can assume that there is very small difference(The number of white pixel and black pixel) between adjcent rows since it changes continuously. So we can also assume that two adjcent rows have very similar computation cost. From this assumption, we can then assign each row to every core one by one and in that situation all cores can have a very close computaion blance, which means we can better utilize multiple cores when computing mandelbrot.
+   Since mandelbrot has "connect" property which means it is continuous everywhere, so we can assume that there is very small difference(The number of white pixel and black pixel) between adjcent columns since it changes continuously. So we can also assume that two adjcent columns have very similar computation cost. From this assumption, we can then assign each column to every core one by one and in that situation all cores can have a very close computaion blance, which means we can better utilize multiple cores when computing mandelbrot.
 
 # Program 2
 
@@ -49,16 +61,16 @@
 
    ```
    Vector Width:              2
-   Vector Utilization:        80.294374%
+   Vector Utilization:        80.501238%
 
    Vector Width:              4
-   Vector Utilization:        73.309825%
+   Vector Utilization:        73.577597%
 
    Vector Width:              8
-   Vector Utilization:        69.609683%
+   Vector Utilization:        69.923057%
 
    Vector Width:              16
-   Vector Utilization:        67.867233%
+   Vector Utilization:        68.121626%
    ```
 
    Vector utilization decreases when VECTOR_WIDTH increases from 2 to 16, because more VECTOR_EIDTH means that there are more data computed at the same time, and not all of data will finish computing process at the same time. More data computed at the same time, the more chance we have that many vectors are actually not being used because they have finished.

@@ -91,13 +91,13 @@ int main(int argc, char * argv[]) {
       printf("Passed!!!\n");
     }
   } else {
-    printf("Must have N % VECTOR_WIDTH == 0 for this problem (VECTOR_WIDTH is %d)\n", VECTOR_WIDTH);
+    printf("Must have N %% VECTOR_WIDTH == 0 for this problem (VECTOR_WIDTH is %d)\n", VECTOR_WIDTH);
   }
 
   delete[] values;
   delete[] exponents;
   delete[] output;
-  delete gold;
+  delete[] gold;
 
   return 0;
 }
@@ -237,12 +237,71 @@ void clampedExpSerial(float* values, int* exponents, float* output, int N) {
 }
 
 void clampedExpVector(float* values, int* exponents, float* output, int N) {
-  // TODO: Implement your vectorized version of clampedExpSerial here
+    // TODO: Implement your vectorized version of clampedExpSerial here
+    __cmu418_vec_float x;
+    __cmu418_vec_int y;
+    __cmu418_vec_int zero_int = _cmu418_vset_int(0);
+    __cmu418_vec_float one_float = _cmu418_vset_float(1.f);
+    __cmu418_vec_int one_int = _cmu418_vset_int(1);
+    __cmu418_mask maskAll, maskIsZero, maskIsNotZero;
+    int TRUE_VECTOR_WIDTH = VECTOR_WIDTH;
 
-  for (int i=0; i<N; i+=VECTOR_WIDTH) {
+    for (int i=0; i < N; i += VECTOR_WIDTH) {
+        // Handle with the situation that N % VECTOR_WIDTH != 0
+        if (i + VECTOR_WIDTH > N ) {
+            TRUE_VECTOR_WIDTH = N - i;
+        } else {
+            TRUE_VECTOR_WIDTH = VECTOR_WIDTH;
+        }
 
-  }
+         __cmu418_vec_float result = _cmu418_vset_float(9.999999f);
+        // All Data that is within bound, always all ones
+        maskAll = _cmu418_init_ones(TRUE_VECTOR_WIDTH);
 
+        // All zeros
+        maskIsZero = _cmu418_init_ones(0);
+
+        // Load vector of values from contiguous memory addresses
+        _cmu418_vload_float(x, values + i, maskAll);    // x = values[i]
+
+        // Load vector of exponents from contiguous memory addresses
+        _cmu418_vload_int(y, exponents + i, maskAll);    // y = exponents[i]
+
+        // Set mask according to predicate
+        _cmu418_veq_int(maskIsZero, y, zero_int, maskAll);    // if (y == 0) {
+
+        // Execute instruction using mask ("if" clause)
+        _cmu418_vmove_float(result, one_float, maskIsZero);    // output = 1.f
+
+        // Inverse maskIsZero to generate "else" mask
+        maskIsNotZero = _cmu418_mask_not(maskIsZero);
+        maskIsNotZero = _cmu418_mask_and(maskIsNotZero, maskAll);    // } else {
+        __cmu418_mask maskIsGreaterThanZero = maskIsNotZero;
+
+        // Execute instruction in "else" clause
+        __cmu418_vec_float resultTemp = _cmu418_vset_float(0.f);    // float result;
+        _cmu418_vmove_float(resultTemp, x, maskIsGreaterThanZero);    // reslut = x;
+
+        __cmu418_vec_int count = _cmu418_vset_int(0);    // int count;
+        _cmu418_vsub_int(count, y, one_int, maskIsGreaterThanZero); // count = y - 1;
+
+        _cmu418_vgt_int(maskIsGreaterThanZero, count, zero_int, maskIsGreaterThanZero);
+        while (_cmu418_cntbits(maskIsGreaterThanZero) > 0) // while(count > 0);
+        {
+            _cmu418_vmult_float(resultTemp, resultTemp, x, maskIsGreaterThanZero);
+            _cmu418_vsub_int(count, count, one_int, maskIsGreaterThanZero); // count = y - 1;
+            _cmu418_vgt_int(maskIsGreaterThanZero, count, zero_int, maskIsGreaterThanZero);    // count > 0;
+        }
+
+        // if (reslut > 9.999999f) {
+        __cmu418_mask maskIsLessThan9f = _cmu418_init_ones(0);
+        _cmu418_vlt_float(maskIsLessThan9f, resultTemp, result, maskIsNotZero);
+
+        _cmu418_vmove_float(result, resultTemp, maskIsLessThan9f);
+
+        // output[i] = reslut;
+        _cmu418_vstore_float(output + i, result, maskAll);
+    }
 }
 
 float arraySumSerial(float* values, int N) {
@@ -258,11 +317,25 @@ float arraySumSerial(float* values, int N) {
 // Assume VECTOR_WIDTH is a power of 2
 float arraySumVector(float* values, int N) {
   // TODO: Implement your vectorized version of arraySumSerial here
+    float result = 0.f;
+    __cmu418_mask maskAll = _cmu418_init_ones(VECTOR_WIDTH);
 
-  for (int i=0; i<N; i+=VECTOR_WIDTH) {
+    for (int i=0; i<N; i+=VECTOR_WIDTH) {
+        __cmu418_vec_float x;
+        _cmu418_vload_float(x, values + i, maskAll);
+        __cmu418_mask maskAdd = _cmu418_init_ones(VECTOR_WIDTH / 2);
+        int count = _cmu418_cntbits(maskAdd);
+        while (count > 0) {
+            _cmu418_hadd_float(x, x);
+            _cmu418_interleave_float(x, x);
+            count /= 2;
+        }
+        __cmu418_mask maskResult = _cmu418_init_ones(1);
+        float resultTemp = 0.f;
+        _cmu418_vstore_float(&resultTemp, x, maskResult);
+        result += resultTemp;
+    }
 
-  }
-
-  return 0.0;
+    return result;
 }
 
