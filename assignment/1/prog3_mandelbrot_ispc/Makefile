@@ -1,12 +1,15 @@
 CXX=g++ -m64
-CXXFLAGS=-I../common -Iobjs/ -O2 -Wall
+CXXFLAGS=-I../common -Iobjs/ -O3 -Wall
 ISPC=ispc
 # note: change target to avx-x2 for AVX capable machines
-ISPCFLAGS=-O2 --target=avx-x2 --arch=x86-64
+ISPCFLAGS=-O2 --target=sse4-x2 --arch=x86-64
 
-APP_NAME=saxpy
+APP_NAME=mandelbrot_ispc
 OBJDIR=objs
 COMMONDIR=../common
+
+PPM_CXX=$(COMMONDIR)/ppm.cpp
+PPM_OBJ=$(addprefix $(OBJDIR)/, $(subst $(COMMONDIR)/,, $(PPM_CXX:.cpp=.o)))
 
 TASKSYS_CXX=$(COMMONDIR)/tasksys.cpp
 TASKSYS_LIB=-lpthread
@@ -22,7 +25,7 @@ dirs:
 clean:
 		/bin/rm -rf $(OBJDIR) *.ppm *~ $(APP_NAME)
 
-OBJS=$(OBJDIR)/main.o $(OBJDIR)/saxpySerial.o $(OBJDIR)/saxpy_ispc.o $(TASKSYS_OBJ)
+OBJS=$(OBJDIR)/main.o $(OBJDIR)/mandelbrotSerial.o $(OBJDIR)/mandelbrot_ispc.o $(PPM_OBJ) $(TASKSYS_OBJ)
 
 $(APP_NAME): dirs $(OBJS)
 		$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -lm $(TASKSYS_LIB)
@@ -33,7 +36,7 @@ $(OBJDIR)/%.o: %.cpp
 $(OBJDIR)/%.o: $(COMMONDIR)/%.cpp
 	$(CXX) $< $(CXXFLAGS) -c -o $@
 
-$(OBJDIR)/main.o: $(OBJDIR)/$(APP_NAME)_ispc.h $(COMMONDIR)/CycleTimer.h
+$(OBJDIR)/main.o: $(OBJDIR)/mandelbrot_ispc.h $(COMMONDIR)/CycleTimer.h
 
 $(OBJDIR)/%_ispc.h $(OBJDIR)//%_ispc.o: %.ispc
 		$(ISPC) $(ISPCFLAGS) $< -o $(OBJDIR)/$*_ispc.o -h $(OBJDIR)/$*_ispc.h

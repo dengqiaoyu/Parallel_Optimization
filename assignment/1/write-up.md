@@ -1,3 +1,72 @@
+# Program 1
+
+1. See in the srouce code.
+
+2. produce a graph of speedup compared to the reference sequential implementation as a function of the number of cores used FOR VIEW 1. Is speedup linear in the number of cores used? In your writeup hypothesize why this is (or is not) the case?
+
+   ​
+
+   No, it is far and far away from linear as we can see from the blue line in the figure above.
+
+   I think there must be some extra overhead when executing multiple threads such as unbalanced computaion cost for each thread, communication cost or content switch latency. So, it can never be linear in the number of cores.
+
+3. How do your measurements explain the speedup graph you previously created?
+
+   ```
+   Round 1:
+   Thread 1 run time: 73.823689 ms
+   Thread 3 run time: 73.829426 ms
+   Thread 2 run time: 73.879259 ms
+   Thread 0 run time: 74.079232 ms
+
+   Round 2:
+   Thread 1 run time: 71.373981 ms
+   Thread 2 run time: 71.391113 ms
+   Thread 3 run time: 82.481008 ms
+   Thread 0 run time: 82.883167 ms
+
+   Round 3:
+   Thread 1 run time: 71.354900 ms
+   Thread 2 run time: 71.394937 ms
+   Thread 3 run time: 82.280435 ms
+   Thread 0 run time: 82.683363 ms
+   [mandelbrot thread]:            [74.159] ms
+   Wrote image file mandelbrot-thread.ppm
+                                   (3.48x speedup from 4 threads)
+   ```
+
+   From the result above, each core completes their task for different duration, so there is some ALU that may not work while some others is still busy, the performance of cores are not fully utilized.
+
+4. In your writeup, describe your approach and report the final 4-thread speedup obtained.
+
+   Since mandelbrot has "connect" property which means it is continuous everywhere, so we can assume that there is very small difference(The number of white pixel and black pixel) between adjcent rows since it changes continuously. So we can also assume that two adjcent rows have very similar computation cost. From this assumption, we can then assign each row to every core one by one and in that situation all cores can have a very close computaion blance, which means we can better utilize multiple cores when computing mandelbrot.
+
+# Program 2
+
+1. See in source code.
+
+2. Does the vector utilization increase, decrease or stay the same as VECTOR_WIDTH changes? Why?
+
+   ```
+   Vector Width:              2
+   Vector Utilization:        80.294374%
+
+   Vector Width:              4
+   Vector Utilization:        73.309825%
+
+   Vector Width:              8
+   Vector Utilization:        69.609683%
+
+   Vector Width:              16
+   Vector Utilization:        67.867233%
+   ```
+
+   Vector utilization decreases when VECTOR_WIDTH increases from 2 to 16, because more VECTOR_EIDTH means that there are more data computed at the same time, and not all of data will finish computing process at the same time. More data computed at the same time, the more chance we have that many vectors are actually not being used because they have finished.
+
+3. See in source code.
+
+
+
 # Program 3
 
 ## Part 1
@@ -49,7 +118,7 @@
    In that case, the computaion cost for 1.0f will be unimportant for both serial version and ISPC version, so the main cost would be computing 2.998f. Since for each 4 elements there will be a high cost, the total number of  loading 2.998f for serial and ISPC version is equal. In the most ideal case, oonly one ALU in the core will be utilized while other ALU will stay idle since 1.0f is very easy to compute its root, and there will be no speedup in ISPC compared with serial version. However, in fact, for this type of input, the ISPC version would be even worse, because SIMD it own has some overhead when being executed.
 
 
-## Program 5
+# Program 5
 
 1. What speedup from using ISPC with tasks do you observe? Explain the performance of this program. Do you think it can be improved?
 

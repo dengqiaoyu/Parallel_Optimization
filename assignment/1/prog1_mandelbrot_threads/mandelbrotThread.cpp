@@ -15,8 +15,6 @@ typedef struct {
     int numThreads;
 } WorkerArgs;
 
-
-
 static inline int mandel(float c_re, float c_im, int count)
 {
     float z_re = c_re, z_im = c_im;
@@ -34,7 +32,6 @@ static inline int mandel(float c_re, float c_im, int count)
 
     return i;
 }
-
 
 
 //
@@ -58,13 +55,12 @@ void* workerThreadStart(void* threadArgs) {
     int numThreads = args->numThreads;
 
     int startRow = 0;
-    int halfRow = startRow + height / 2;
     int endRow = startRow + height;
 
     float dx = (x1 - x0) / width;
     float dy = (y1 - y0) / height;
     // Use Round Robin raw by raw
-    for (int j = startRow; j < halfRow; j++)
+    for (int j = startRow; j < endRow; j++)
     {
         for (int i = threadId; i < width; i += numThreads)
         {
@@ -75,18 +71,6 @@ void* workerThreadStart(void* threadArgs) {
             output[index] = mandel(x, y, maxIterations);
         }
     }
-    for (int j = halfRow; j < endRow; j++)
-    {
-        for (int i = numThreads - 1 - threadId; i < width; i += numThreads)
-        {
-            float x = x0 + i * dx;
-            float y = y0 + j * dy;
-
-            int index = (j * width + i);
-            output[index] = mandel(x, y, maxIterations);
-        }
-    }
-
 
     double endTime = CycleTimer::currentSeconds();
     minThread = std::min(minThread, endTime - startTime);
@@ -118,7 +102,6 @@ void mandelbrotThread(
     WorkerArgs args[MAX_THREADS];
 
     for (int i=0; i<numThreads; i++) {
-        // TODO: Set thread arguments here.
         args[i].x0 = x0;
         args[i].y0 = y0;
         args[i].x1 = x1;

@@ -2,7 +2,7 @@ CXX=g++ -m64
 CXXFLAGS=-I../common -Iobjs/ -O2 -Wall
 ISPC=ispc
 # note: change target to avx-x2 for AVX capable machines
-ISPCFLAGS=-O2 --target=avx-x2 --arch=x86-64
+ISPCFLAGS=-O2 --target=sse4-x2 --arch=x86-64
 
 APP_NAME=saxpy
 OBJDIR=objs

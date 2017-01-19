@@ -1,12 +1,15 @@
 CXX=g++ -m64
-CXXFLAGS=-I../common -Iobjs/ -O2 -Wall
+CXXFLAGS=-I../common -Iobjs/ -O3 -Wall
 ISPC=ispc
-# note: change target to avx-x2 for AVX capable machines
-ISPCFLAGS=-O2 --target=avx-x2 --arch=x86-64
+# note: change target to avx for AVX capable machines
+ISPCFLAGS=-O2 --target=sse4 --arch=x86-64
 
-APP_NAME=saxpy
+APP_NAME=sqrt
 OBJDIR=objs
 COMMONDIR=../common
+
+PPM_CXX=$(COMMONDIR)/ppm.cpp
+PPM_OBJ=$(addprefix $(OBJDIR)/, $(subst $(COMMONDIR)/,, $(PPM_CXX:.cpp=.o)))
 
 TASKSYS_CXX=$(COMMONDIR)/tasksys.cpp
 TASKSYS_LIB=-lpthread
@@ -22,7 +25,7 @@ dirs:
 clean:
 		/bin/rm -rf $(OBJDIR) *.ppm *~ $(APP_NAME)
 
-OBJS=$(OBJDIR)/main.o $(OBJDIR)/saxpySerial.o $(OBJDIR)/saxpy_ispc.o $(TASKSYS_OBJ)
+OBJS=$(OBJDIR)/main.o $(OBJDIR)/sqrtSerial.o $(OBJDIR)/sqrt_ispc.o $(PPM_OBJ) $(TASKSYS_OBJ)
 
 $(APP_NAME): dirs $(OBJS)
 		$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -lm $(TASKSYS_LIB)
