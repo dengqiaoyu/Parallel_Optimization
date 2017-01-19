@@ -1,8 +1,9 @@
 CXX=g++ -m64
 CXXFLAGS=-I../common -Iobjs/ -O3 -Wall
 ISPC=ispc
+AVXFLAG=-mavx
 # note: change target to avx for AVX capable machines
-ISPCFLAGS=-O2 --target=sse4 --arch=x86-64
+ISPCFLAGS=-O2 --target=avx2-i32x8 --arch=x86-64
 
 APP_NAME=sqrt
 OBJDIR=objs
@@ -25,7 +26,7 @@ dirs:
 clean:
 		/bin/rm -rf $(OBJDIR) *.ppm *~ $(APP_NAME)
 
-OBJS=$(OBJDIR)/main.o $(OBJDIR)/sqrtSerial.o $(OBJDIR)/sqrt_ispc.o $(PPM_OBJ) $(TASKSYS_OBJ)
+OBJS=$(OBJDIR)/main.o $(OBJDIR)/sqrtSerial.o $(OBJDIR)/sqrt_ispc.o $(OBJDIR)/sqrtAVX.o $(PPM_OBJ) $(TASKSYS_OBJ)
 
 $(APP_NAME): dirs $(OBJS)
 		$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -lm $(TASKSYS_LIB)
@@ -37,6 +38,9 @@ $(OBJDIR)/%.o: $(COMMONDIR)/%.cpp
 	$(CXX) $< $(CXXFLAGS) -c -o $@
 
 $(OBJDIR)/main.o: $(OBJDIR)/$(APP_NAME)_ispc.h $(COMMONDIR)/CycleTimer.h
+
+$(OBJDIR)/sqrtAVX.o: sqrtAVX.cpp
+	$(CXX) $< $(CXXFLAGS) $(AVXFLAG) -c -o $@
 
 $(OBJDIR)/%_ispc.h $(OBJDIR)//%_ispc.o: %.ispc
 		$(ISPC) $(ISPCFLAGS) $< -o $(OBJDIR)/$*_ispc.o -h $(OBJDIR)/$*_ispc.h

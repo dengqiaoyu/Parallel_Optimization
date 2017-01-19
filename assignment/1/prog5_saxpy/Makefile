@@ -1,8 +1,9 @@
 CXX=g++ -m64
-CXXFLAGS=-I../common -Iobjs/ -O2 -Wall
+CXXFLAGS=-I../common -Iobjs/ -O3 -Wall
 ISPC=ispc
+AVXFLAG=-mavx -mfma
 # note: change target to avx-x2 for AVX capable machines
-ISPCFLAGS=-O2 --target=sse4-x2 --arch=x86-64
+ISPCFLAGS=-O3 --target=sse4-x2 --arch=x86-64
 
 APP_NAME=saxpy
 OBJDIR=objs
@@ -22,7 +23,7 @@ dirs:
 clean:
 		/bin/rm -rf $(OBJDIR) *.ppm *~ $(APP_NAME)
 
-OBJS=$(OBJDIR)/main.o $(OBJDIR)/saxpySerial.o $(OBJDIR)/saxpy_ispc.o $(TASKSYS_OBJ)
+OBJS=$(OBJDIR)/main.o $(OBJDIR)/saxpySerial.o $(OBJDIR)/saxpy_ispc.o $(OBJDIR)/saxpyAvxStream.o $(TASKSYS_OBJ)
 
 $(APP_NAME): dirs $(OBJS)
 		$(CXX) $(CXXFLAGS) -o $@ $(OBJS) -lm $(TASKSYS_LIB)
@@ -34,6 +35,9 @@ $(OBJDIR)/%.o: $(COMMONDIR)/%.cpp
 	$(CXX) $< $(CXXFLAGS) -c -o $@
 
 $(OBJDIR)/main.o: $(OBJDIR)/$(APP_NAME)_ispc.h $(COMMONDIR)/CycleTimer.h
+
+$(OBJDIR)/saxpyAvxStream.o: saxpyAvxStream.cpp
+	$(CXX) $< $(CXXFLAGS) $(AVXFLAG) -c -o $@
 
 $(OBJDIR)/%_ispc.h $(OBJDIR)//%_ispc.o: %.ispc
 		$(ISPC) $(ISPCFLAGS) $< -o $(OBJDIR)/$*_ispc.o -h $(OBJDIR)/$*_ispc.h

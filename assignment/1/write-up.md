@@ -49,9 +49,9 @@
 
    From the result above, each core completes their task for different duration, so there is some ALU that may not work while some others is still busy, the performance of cores are not fully utilized.
 
-4. In your writeup, describe your approach and report the final 4-thread speedup obtained.
+4. In your writeup, describe your approach and report the final 16-thread speedup obtained. Also comment on the difference in scaling behavior from 4 to 8 threads vs 8 to 16 threads.
 
-   Since mandelbrot has "connect" property which means it is continuous everywhere, so we can assume that there is very small difference(The number of white pixel and black pixel) between adjcent columns since it changes continuously. So we can also assume that two adjcent columns have very similar computation cost. From this assumption, we can then assign each column to every core one by one and in that situation all cores can have a very close computaion blance, which means we can better utilize multiple cores when computing mandelbrot.
+   At last the final speedup for 16 threads is 8.68X, here is my strategy. Since mandelbrot has "connect" property which means it is continuous everywhere, so we can assume that there is very small difference(The number of white pixel and black pixel) between adjcent columns since it changes continuously. So we can also assume that two adjcent columns have very similar computation cost. From this assumption, we can then assign each column to every core one by one and in that situation all cores can have a very close computaion blance, which means we can better utilize multiple cores when computing mandelbrot. The performance benefit form 4 to 8 per thread is 0.5X per thread, however, The performance benefit form 8 to 16 per thread is 0.33875X per thread, as we can see the performance benefit from adding more threads is decreasing as we add more and more thread, I think it is because there exists some overhead such as commnication or scheduling process will slowdown the performance. What's more, the imbalance load among different thread will also affect the speedup and after we create threads more than the number of threads that CPU can handle simultaneously (In this case we have 8-core CPU with 16 threads' hyper threading), the performance will not increase or even decrease.
 
 # Program 2
 
@@ -73,7 +73,7 @@
    Vector Utilization:        68.121626%
    ```
 
-   Vector utilization decreases when VECTOR_WIDTH increases from 2 to 16, because more VECTOR_EIDTH means that there are more data computed at the same time, and not all of data will finish computing process at the same time. More data computed at the same time, the more chance we have that many vectors are actually not being used because they have finished.
+   Vector utilization decreases when VECTOR_WIDTH increases from 2 to 16, because more VECTOR_WIDTH means that there are more data computed at the same time, and not all of data will finish computing process at the same time. More data computed at the same time, the more chance we have that many vectors are actually not being used because they have finished. From math perspective, *vector utilization* is calculated by *utilized vector lanes* divided by *total vector lanes*, from the data above, we can see that while *utilized vector lanes* remain mostly the same when VECTOR_WIDTH increasing from 2 to 16, *total vector lanes* increases because of more loop iterations caused by more imbalance computation cost within vector.
 
 3. See in source code.
 
@@ -85,7 +85,7 @@
 
 1. What is the maximum speedup you expect given what you know about those CPUs:
 
-   4
+   4, however the real speedup on machine is only 2.99X.
 
 2. Why might the number you observe be less than this ideal?
 
@@ -95,12 +95,12 @@
 
 1. What speedup do you observe on view 1? What is the speedup over the version of mandelbrot_ispc that does not partition that computation into tasks?
 
-   1. 7.40X speedup
-   2. 1.94X speedup
+   1. 4.33X speedup from ISPC-task over serial.
+   2. 1.45X speedup from ISPC-task over ISPC-nontask.
 
 2. How did you determine how many tasks to create? Why does the number you chose work best?
 
-   I choose 16 tasks to run, which reaches 16.03X speedup over serial version, 4.20X speedup over ISPC with no task version.  
+   I choose 100 tasks to run, it reaches at 17.87X speedup. To fully utilize all cores of CPU, we need at least assign 16 tasks to the CPU. However, when tasks is more than threads that a CPU can handle simultaneously,  tasks are queued into a list, and thread can choose one from pool when it is idle. Assigning more tasks than the cores will improve performance because more tasks can divide computation cost more evenly and thus reduce imbalances among threads.
 
 3. What are differences between the pthread abstraction (used in Program 1) and the ISPC task abstraction?
 
@@ -112,16 +112,16 @@
 
 1. What is the speedup due to SIMD parallelization? What is the speedup due to multi-core parallelization?
 
-   1. 2.64X
-   2. 17.03X
+   1. 2.64X from ISPC-nontask over serial
+   2. 21.7X from ISPC-task over serial
 
 2. Does your modification improve SIMD speedup? Does it improve multi-core speedup (i.e., the benefit of moving from ISPC without- tasks to ISPC with tasks)? Please explain why.
 
-   Set the values in array in order, which means that two adjcent elements have very few difference.
+   Set the values in array to 2.9999f, which means all the elements have the same computation cost.
 
    1. Yes
    2. No
-   3. if the data in the 4-wide vector are relatively close to each other, which means that they have the same computation cost, in that situation the ALU in the same core will seldom stay idle when performing SIMD instruction. So this type of data will utilize the advantage of SIMD most. Since it only improve the performance when executing SIMD program, it does not improve the multiple core performance over SIMD program without tasks.
+   3. if the data in the 4-wide vector are relatively close to each other, which means that they have the same computation cost, in that situation the ALU in the same core will seldom stay idle when performing SIMD instruction. So this type of data will utilize the advantage of SIMD most. Since it only improve the performance when executing SIMD program, it does not affect the multiple core performance over SIMD program without tasks since from the computation is well distributed by assigning 64 tasks.
 
 3. What is the reason for the loss in efficiency?
 
@@ -135,17 +135,30 @@
 1. What speedup from using ISPC with tasks do you observe? Explain the performance of this program. Do you think it can be improved?
 
    ```
-   [saxpy serial]:         [27.641] ms     [10.782] GB/s   [1.447] GFLOPS
-   [saxpy ispc]:           [27.555] ms     [10.815] GB/s   [1.452] GFLOPS
-   [saxpy task ispc]:      [28.277] ms     [10.539] GB/s   [1.415] GFLOPS
-                                   (0.97x speedup from use of tasks)
-                                   (1.00x speedup from ISPC)
-                                   (0.98x speedup from task ISPC)
+   ghc29.ghc.andrew.cmu.edu(8 core 3.2 GHz Intel Core i7):
+   [saxpy serial]:         [22.314] ms     [13.356] GB/s   [1.793] GFLOPS
+   [saxpy ispc]:           [21.269] ms     [14.012] GB/s   [1.881] GFLOPS
+   [saxpy task ispc]:      [7.668] ms      [38.865] GB/s   [5.216] GFLOPS
+                                   (2.77x speedup from use of tasks)
+                                   (1.05x speedup from ISPC)
+                                   (2.91x speedup from task ISPC)
    ```
 
-   It shows that neighter ISPC or ISPC with task improve the performance over the serial version.
+   ```
+   ghc66.ghc.andrew.cmu.edu(quad-core 2.2 GHz Intel Core i7):
+   [saxpy serial]:		[29.178] ms	[10.214] GB/s	[1.371] GFLOPS
+   [saxpy ispc]:		[28.997] ms	[10.278] GB/s	[1.379] GFLOPS
+   [saxpy task ispc]:	[29.994] ms	[9.936] GB/s	[1.334] GFLOPS
+   				(0.97x speedup from use of tasks)
+   				(1.01x speedup from ISPC)
+   				(0.97x speedup from task ISPC)
+   ```
 
-   The reason why it cannot be improved is that the original serial version:
+   ​
+
+   It shows that ISPC does not improve the performance over the serial version, however, ISPC with tasks  increase the performance by nearly 3X.
+
+   The reason why it cannot be improved by SIMD is that the original serial version:
 
    ```c
    for (int i=0; i<N; i++) {
@@ -153,8 +166,12 @@
        }
    ```
 
-   It has 3 memory refrencing for every element in the array including load x, load y and store to result. It spends most of its time wating on memory even if it can exchange to another thread when waiting for data, because it is bandwidth bounded. So, this program achieves low ALU utilization even it uses SIMD or muti-thread algorithm, the time it saves on computing is far less than the time used in waiting data. I think it can be improved.
+   It has 3 memory refrencing for every element in the array including load x, load y and store to result. It spends most of its time wating on memory even if it can exchange to another thread when waiting for data, because it is bandwidth bounded. So, this program achieves low ALU utilization even it uses SIMD or muti-thread algorithm, the time it saves on computing is far less than the time used in waiting data. I think it can be improved by using ```__m128 _mm_fmadd_ps (__m128 a, __m128 b, __m128 c)``` in the FMA instruction to avoid intermediate data flow.
 
-2. 123
+2. As shown above, every time we calculate ```result[i] = scale * X[i] + Y[i]``` first we need to load both ```X``` and ```Y```, so we use 8 bytes here. However set value to ```result``` cost more than 4 bytes, because we need first read ```result``` from memory to cache, and then change the value of result in the case, and then ```result``` in the cache is writen back to memory, so set value to result actually use 8 bytes in total. So, for every element in the array, we will use 16 bytes(4 * sizeof(float)) to go through the bus.
+
+3. I think we can use store instructions which will not produce intermediate result such as ```_mm_fmadd_ps```  to reduce the bandwidth requirement for every element.
+
+
 
 

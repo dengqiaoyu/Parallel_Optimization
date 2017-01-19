@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <algorithm>
+#include <errno.h>
 
 #include "CycleTimer.h"
 #include "saxpy_ispc.h"
 
 extern void saxpySerial(int N, float a, float* X, float* Y, float* result);
+extern void saxpyAvxStream(int N, float a, float* X, float* Y, float* result);
 
 
 // return GB/s
@@ -32,6 +34,17 @@ int main() {
     float* arrayX = new float[N];
     float* arrayY = new float[N];
     float* result = new float[N];
+    float* resultAlign;
+
+    char ret = 0;
+    ret = posix_memalign((void **)&resultAlign, 32, sizeof(float) * N);
+    if (ret != 0)
+    {
+        int errsv = errno;
+        printf("%s\n", strerror(errsv));
+
+        return 1;
+    }
 
     // initialize array values
     for (unsigned int i=0; i<N; i++)
@@ -39,6 +52,7 @@ int main() {
         arrayX[i] = i;
         arrayY[i] = i;
         result[i] = 0.f;
+        resultAlign[i] = 0.f;
     }
 
     //
@@ -53,10 +67,10 @@ int main() {
         minSerial = std::min(minSerial, endTime - startTime);
     }
 
-// printf("[saxpy serial]:\t\t[%.3f] ms\t[%.3f] GB/s\t[%.3f] GFLOPS\n",
-    //       minSerial * 1000,
-    //       toBW(TOTAL_BYTES, minSerial),
-    //       toGFLOPS(TOTAL_FLOPS, minSerial));
+    printf("[saxpy serial]:\t\t[%.3f] ms\t[%.3f] GB/s\t[%.3f] GFLOPS\n",
+           minSerial * 1000,
+           toBW(TOTAL_BYTES, minSerial),
+           toGFLOPS(TOTAL_FLOPS, minSerial));
 
     // Clear out the buffer
     for (unsigned int i = 0; i < N; ++i)
@@ -98,13 +112,40 @@ int main() {
            toBW(TOTAL_BYTES, minTaskISPC),
            toGFLOPS(TOTAL_FLOPS, minTaskISPC));
 
+
+    // Clear out the buffer
+    for (unsigned int i = 0; i < N; ++i)
+        result[i] = 0.f;
+
+    //
+    // Run the ISPC (multi-core) implementation
+    //
+    double minAvxStream = 1e30;
+    for (int i = 0; i < 3; ++i) {
+        double startTime = CycleTimer::currentSeconds();
+        printf("line 126\n");
+        saxpyAvxStream(N, scale, arrayX, arrayY, resultAlign);
+        double endTime = CycleTimer::currentSeconds();
+        minAvxStream = std::min(minAvxStream, endTime - startTime);
+    }
+    printf("line 130\n");
+
+    printf("[saxpy with fma instruction]:\t[%.3f] ms\t[%.3f] GB/s\t[%.3f] GFLOPS\n",
+           minAvxStream * 1000,
+           toBW(TOTAL_BYTES, minAvxStream),
+           toGFLOPS(TOTAL_FLOPS, minAvxStream));
+
+
     printf("\t\t\t\t(%.2fx speedup from use of tasks)\n", minISPC/minTaskISPC);
-    //printf("\t\t\t\t(%.2fx speedup from ISPC)\n", minSerial/minISPC);
-    //printf("\t\t\t\t(%.2fx speedup from task ISPC)\n", minSerial/minTaskISPC);
+    printf("\t\t\t\t(%.2fx speedup from AVX with stream)\n", minSerial/minAvxStream);
+    printf("\t\t\t\t(%.2fx speedup from ISPC)\n", minSerial/minISPC);
+    printf("\t\t\t\t(%.2fx speedup from task ISPC)\n", minSerial/minTaskISPC);
+
 
     delete[] arrayX;
     delete[] arrayY;
     delete[] result;
+    free(resultAlign);
 
     return 0;
 }
