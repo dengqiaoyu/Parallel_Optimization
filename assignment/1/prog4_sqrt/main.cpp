@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <pthread.h>
 #include <math.h>
+#include <errno.h>
 
 #include "CycleTimer.h"
 #include "sqrt_ispc.h"
@@ -26,8 +27,23 @@ int main() {
     const unsigned int N = 20 * 1000 * 1000;
     const float initialGuess = 1.0f;
 
-    float* values = new float[N];
-    float* output = new float[N];
+    float* values = NULL;
+    char ret = 0;
+    ret = posix_memalign((void **)&values, 32, sizeof(float) * N);
+    if (ret != 0)
+    {
+        printf("%s\n", strerror(ret));
+        return 1;
+    }
+
+    float* output = NULL;
+    ret = posix_memalign((void **)&output, 32, sizeof(float) * N);
+    if (ret != 0)
+    {
+        printf("%s\n", strerror(ret));
+        return 1;
+    }
+
     float* gold = new float[N];
 
     for (unsigned int i=0; i<N; i++)
@@ -160,8 +176,8 @@ int main() {
     printf("\t\t\t\t(%.2fx speedup from AVX over SerialV2)\n", minSerialV2/minAVX);
 
 
-    delete[] values;
-    delete[] output;
+    free(values);
+    free(output);
     delete[] gold;
 
     return 0;

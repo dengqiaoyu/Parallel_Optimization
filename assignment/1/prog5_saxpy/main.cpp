@@ -31,13 +31,28 @@ int main() {
 
     float scale = 2.f;
 
+    // To use posix_memalign, memory be aligned on a 32-byte boundary
     float* arrayX = new float[N];
-    float* arrayY = new float[N];
-    float* result = new float[N];
-    // To use posix_memalign, mempory be aligned on a 32-byte boundary
-    float* resultAlign;
-
     char ret = 0;
+    float* arrayXAlign = NULL;
+    ret = posix_memalign((void **)&arrayXAlign, 32, sizeof(float) * N);
+    if (ret != 0)
+    {
+        printf("%s\n", strerror(ret));
+        return 1;
+    }
+
+    float* arrayY = new float[N];
+    float* arrayYAlign = NULL;
+    ret = posix_memalign((void **)&arrayYAlign, 32, sizeof(float) * N);
+    if (ret != 0)
+    {
+        printf("%s\n", strerror(ret));
+        return 1;
+    }
+
+    float* result = new float[N];
+    float* resultAlign;
     ret = posix_memalign((void **)&resultAlign, 32, sizeof(float) * N);
     if (ret != 0)
     {
@@ -50,7 +65,9 @@ int main() {
     for (unsigned int i=0; i<N; i++)
     {
         arrayX[i] = i;
+        arrayXAlign[i] = i;
         arrayY[i] = i;
+        arrayYAlign[i] = i;
         result[i] = 0.f;
         resultAlign[i] = 0.f;
     }
@@ -145,6 +162,8 @@ int main() {
     delete[] arrayX;
     delete[] arrayY;
     delete[] result;
+    free(arrayXAlign);
+    free(arrayYAlign);
     free(resultAlign);
 
     return 0;
