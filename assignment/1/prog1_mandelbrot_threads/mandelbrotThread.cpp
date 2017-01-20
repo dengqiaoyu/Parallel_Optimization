@@ -1,3 +1,9 @@
+/**
+ * @name: mandelbrotThread
+ * @breif: Implement better load balance version of mandelbrotThread by assign
+ *         work load column by column
+ * @author: Qiaoyu Deng(qdeng@andrew.cmu.edu)
+ */
 #include <stdio.h>
 #include <pthread.h>
 #include <algorithm>
@@ -59,7 +65,7 @@ void* workerThreadStart(void* threadArgs) {
 
     float dx = (x1 - x0) / width;
     float dy = (y1 - y0) / height;
-    // Use Round Robin raw by raw
+    // Use Round Robin column by column
     for (int j = startRow; j < endRow; j++)
     {
         for (int i = threadId; i < width; i += numThreads)

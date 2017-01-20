@@ -1,3 +1,8 @@
+/**
+ * @name: main.cpp
+ * @breif: Implement parallel version of clampedExp and arraySum
+ * @author: Qiaoyu Deng(qdeng@andrew.cmu.edu)
+ */
 #include <stdio.h>
 #include <algorithm>
 #include <getopt.h>
@@ -237,7 +242,7 @@ void clampedExpSerial(float* values, int* exponents, float* output, int N) {
 }
 
 void clampedExpVector(float* values, int* exponents, float* output, int N) {
-    // TODO: Implement your vectorized version of clampedExpSerial here
+
     __cmu418_vec_float x;
     __cmu418_vec_int y;
     __cmu418_vec_int zero_int = _cmu418_vset_int(0);
@@ -316,7 +321,6 @@ float arraySumSerial(float* values, int N) {
 // Assume N is a power VECTOR_WIDTH == 0
 // Assume VECTOR_WIDTH is a power of 2
 float arraySumVector(float* values, int N) {
-  // TODO: Implement your vectorized version of arraySumSerial here
     float result = 0.f;
     __cmu418_mask maskAll = _cmu418_init_ones(VECTOR_WIDTH);
 
@@ -326,6 +330,7 @@ float arraySumVector(float* values, int N) {
         __cmu418_mask maskAdd = _cmu418_init_ones(VECTOR_WIDTH / 2);
         int count = _cmu418_cntbits(maskAdd);
         while (count > 0) {
+            // Add adjcent items and exchange thier position
             _cmu418_hadd_float(x, x);
             _cmu418_interleave_float(x, x);
             count /= 2;
