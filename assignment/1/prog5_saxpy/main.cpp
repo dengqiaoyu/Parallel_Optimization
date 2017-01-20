@@ -34,14 +34,14 @@ int main() {
     float* arrayX = new float[N];
     float* arrayY = new float[N];
     float* result = new float[N];
+    // To use posix_memalign, mempory be aligned on a 32-byte boundary
     float* resultAlign;
 
     char ret = 0;
     ret = posix_memalign((void **)&resultAlign, 32, sizeof(float) * N);
     if (ret != 0)
     {
-        int errsv = errno;
-        printf("%s\n", strerror(errsv));
+        printf("%s\n", strerror(ret));
 
         return 1;
     }
@@ -118,28 +118,28 @@ int main() {
         result[i] = 0.f;
 
     //
-    // Run the ISPC (multi-core) implementation
+    // Run the AVX implementation by using stream instruction
     //
     double minAvxStream = 1e30;
     for (int i = 0; i < 3; ++i) {
         double startTime = CycleTimer::currentSeconds();
-        printf("line 126\n");
         saxpyAvxStream(N, scale, arrayX, arrayY, resultAlign);
         double endTime = CycleTimer::currentSeconds();
         minAvxStream = std::min(minAvxStream, endTime - startTime);
     }
-    printf("line 130\n");
 
-    printf("[saxpy with fma instruction]:\t[%.3f] ms\t[%.3f] GB/s\t[%.3f] GFLOPS\n",
+    printf("[saxpy with AVX stream]:\t[%.3f] ms\t[%.3f] GB/s\t[%.3f] GFLOPS\n",
            minAvxStream * 1000,
            toBW(TOTAL_BYTES, minAvxStream),
            toGFLOPS(TOTAL_FLOPS, minAvxStream));
 
 
-    printf("\t\t\t\t(%.2fx speedup from use of tasks)\n", minISPC/minTaskISPC);
-    printf("\t\t\t\t(%.2fx speedup from AVX with stream)\n", minSerial/minAvxStream);
+    printf("\t\t\t\t(%.2fx speedup from AVX with stream)\n",
+            minSerial/minAvxStream);
     printf("\t\t\t\t(%.2fx speedup from ISPC)\n", minSerial/minISPC);
     printf("\t\t\t\t(%.2fx speedup from task ISPC)\n", minSerial/minTaskISPC);
+    printf("\t\t\t\t(%.2fx speedup from use of tasks over ISPC)\n",
+            minISPC/minTaskISPC);
 
 
     delete[] arrayX;

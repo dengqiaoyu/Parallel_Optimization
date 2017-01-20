@@ -1,7 +1,7 @@
 CXX=g++ -m64
 CXXFLAGS=-I../common -Iobjs/ -O3 -Wall
 ISPC=ispc
-AVXFLAG=-mavx -mfma
+AVXFLAG=-mavx
 # note: change target to avx-x2 for AVX capable machines
 ISPCFLAGS=-O3 --target=sse4-x2 --arch=x86-64
 

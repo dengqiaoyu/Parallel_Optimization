@@ -13,8 +13,6 @@ extern void sqrtSerialV2(int N, float startGuess, float* values, float* output);
 extern void sqrtAVX(int N, float startGuess, float* values, float* output);
 
 
-
-
 static void verifyResult(int N, float* result, float* gold) {
     for (int i=0; i<N; i++) {
         if (fabs(result[i] - gold[i]) > 1e-4) {
@@ -36,8 +34,12 @@ int main() {
     {
         // random input values
         values[i] = .001f + 2.998f * static_cast<float>(rand()) / RAND_MAX;
-        // TODO: Try different input values here.
+
+        // ##### For best case in ISPC #####
         // values[i] = 2.998f;
+        // ##### For best case in ISPC #####
+
+        // ##### For worst case in ISPC #####
         //if (i % 4 == 0)
         //{
         //    values[i] = 2.998f;
@@ -46,6 +48,7 @@ int main() {
         //{
         //    values[i] = 1.0f;
         //}
+        // ##### For worst case in ISPC #####
         output[i] = 0.f;
     }
 
