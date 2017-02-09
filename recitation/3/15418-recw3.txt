@@ -27,7 +27,7 @@ elements of a floating-point vector, as given by the following code:
 float sumVector(int length, float *data) {
     float val = 0.0;
     for (int i = 0; i < length; i++)
-	val += data[i];
+       val += data[i];
     return val;
 }
 
@@ -48,7 +48,7 @@ computing elements:
 
 A "CUDA program" contains the code for #2 & #3.
 
-Here's a kernel for reducing a vector from length to nlength:
+Here's a kernel for reducing a vector from length to nlength:'
 // CUDA kernel
 // Destructively reduce data from length to nlength.
 __global__ void
@@ -56,10 +56,10 @@ inplaceReduceKernel(int length, int nlength, float *data) {
     // idx will range between 0 and nlength - 1
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < nlength) {
-	float val = data[idx];
-	for (int i = idx + nlength; i < length; i += nlength)
-	    val += data[i];
-	data[idx] = val;
+    float val = data[idx];
+    for (int i = idx + nlength; i < length; i += nlength)
+        val += data[i];
+    data[idx] = val;
     }
 }
 
@@ -75,7 +75,7 @@ Understanding this code:
 Launching a kernel.
 
 Here's a function that will run on the device controller that performs
-sum reduction:
+sum reduction:'
 
 // Reducer based on inplace reduction 
 float
@@ -86,17 +86,17 @@ inplaceReduce(int length, float *srcVecDevice, float *scratchVecDevice) {
     int nlength;
     // Copy source data into scratch area so that can modify it
     cudaMemcpy(scratchVecDevice, srcVecDevice, length * sizeof(float),
-	       cudaMemcpyDeviceToDevice);
+           cudaMemcpyDeviceToDevice);
     for (; length > 1; length = nlength) {
     // Make sure you have enough blocks. to round up.
-	nlength = UPDIV(length, degree);
-	int blocks = UPDIV(nlength, threadsPerBlock);
-	inplaceReduceKernel<<<blocks, threadsPerBlock>>>(length, nlength,
-						 scratchVecDevice);
-	cudaThreadSynchronize();
+    nlength = UPDIV(length, degree);
+    int blocks = UPDIV(nlength, threadsPerBlock);
+    inplaceReduceKernel<<<blocks, threadsPerBlock>>>(length, nlength,
+                         scratchVecDevice);
+    cudaThreadSynchronize();
     }
     cudaMemcpy(&val, &scratchVecDevice[0],
-	       sizeof(float), cudaMemcpyDeviceToHost);
+           sizeof(float), cudaMemcpyDeviceToHost);
     return val;
 }
 
@@ -123,7 +123,7 @@ Note: reduceThreadsPerBlock and reduceDegree are parameters set by
 
    c. How many total kernel launches would there be?
 
-   d. What's the purpose of the second cudaMemcpy operation
+   d. What's the purpose of the second cudaMemcpy operation'
 
 Measuring this code.
 
@@ -158,7 +158,7 @@ a very simple exercise!)
 Using this kernel is a bit tricky, since we need to provide the
 program with scratch memory.
 
-Here's one way to implement it:
+Here's one way to implement it:'
 
 // Reducer based on copying reductions
 float
@@ -171,14 +171,14 @@ copyReduce(int length, float *srcVecDevice, float *scratchVecDevice) {
     float *src = srcVecDevice;
     float *dest;
     for (; length > 1; length = nlength) {
-	nlength = UPDIV(length, degree);
-	dest = &scratchVecDevice[sindex];
-	int blocks = UPDIV(nlength, threadsPerBlock);
-	copyReduceKernel<<<blocks, threadsPerBlock>>>(length, nlength,
-						      src, dest);
-	sindex += nlength;
-	src = dest;
-	cudaThreadSynchronize();
+    nlength = UPDIV(length, degree);
+    dest = &scratchVecDevice[sindex];
+    int blocks = UPDIV(nlength, threadsPerBlock);
+    copyReduceKernel<<<blocks, threadsPerBlock>>>(length, nlength,
+                              src, dest);
+    sindex += nlength;
+    src = dest;
+    cudaThreadSynchronize();
     }
     cudaMemcpy(&val, &dest[0], sizeof(float), cudaMemcpyDeviceToHost);
     return val;
@@ -186,7 +186,7 @@ copyReduce(int length, float *srcVecDevice, float *scratchVecDevice) {
 
 Understanding this code:
 
-a. What's the role of the variable sindex?
+a. What's the role of the variable sindex?'
 
 b. How will it change as the program executes?
 
@@ -202,7 +202,7 @@ Measuring this code:
 
 Once you've fixed up the kernel, modify the macro REDUCER to be
 copyReduce.  Compile and run the program for different values of
-degree.  Is there any performance difference from before?
+degree.  Is there any performance difference from before?'
 
 III. Intermediate CUDA Programming
 
@@ -211,7 +211,7 @@ Unfortunately, getting good performance often requires going further,
 understanding the block structure of the thread processors.
 
 CUDA programs can run much faster if you take advantage of the
-machine's hierarchy.  In particular, within a single block you can
+machine's hierarchy.'  In particular, within a single block you can
 take advantage of:
 
 * Fast shared memory
@@ -236,22 +236,22 @@ blockReduceKernel(int length, int degree, float *src, float *dest) {
 
     // loading in parallel
     if (gidx < length)
-	val += src[gidx];
+       val += src[gidx];
 
     scratch[idx] = val;
-	    
+        
     __syncthreads();
 
     int nlen;
     for (int len = bsize; len > 1; len = nlen) {
-	nlen = UPDIV(len, degree);
-	if (idx < nlen) {
-	    float val = scratch[idx];
-	    for (int i = idx + nlen; i < len; i += nlen)
-		val += scratch[i];
-	    scratch[idx] = val;
-	}
-	__syncthreads();
+    nlen = UPDIV(len, degree);
+    if (idx < nlen) {
+        float val = scratch[idx];
+        for (int i = idx + nlen; i < len; i += nlen)
+            val += scratch[i];
+        scratch[idx] = val;
+    }
+    __syncthreads();
     }
     if (idx == 0)
     dest[tidx] = scratch[0];
@@ -302,7 +302,7 @@ form of the code:
 // Reduce portion of vector by degree * threadsPerBlock
 __global__ void
 blockCollectReduceKernel(int length, int threads, int degree,
-			 float *src, float *dest) {
+             float *src, float *dest) {
     int idx = threadIdx.x;  // Thread ID within block
     int tidx = blockIdx.x;   // Identifies which tree this is part of
     int bsize = blockDim.x;
@@ -325,18 +325,18 @@ blockCollectReduceKernel(int length, int threads, int degree,
 
     int nlen;
     for (int len = bsize; len > 1; len = nlen) {
-	nlen = UPDIV(len, degree);
-	if (idx < nlen) {
-	    float val = scratch[idx];
-	    for (int i = idx + nlen; i < len; i += nlen)
-		val += scratch[i];
-	    scratch[idx] = val;
-	}
-	__syncthreads();
+    nlen = UPDIV(len, degree);
+    if (idx < nlen) {
+        float val = scratch[idx];
+        for (int i = idx + nlen; i < len; i += nlen)
+            val += scratch[i];
+        scratch[idx] = val;
+    }
+    __syncthreads();
     }
 
     if (idx == 0)
-	dest[tidx] = scratch[0];
+    dest[tidx] = scratch[0];
 }
 
 Understanding this code:

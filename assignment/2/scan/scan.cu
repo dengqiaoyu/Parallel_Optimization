@@ -11,7 +11,7 @@
 
 #include "CycleTimer.h"
 
-#define THREADS_PER_BLOCK 256
+#define THREADS_PER_BLOCK 1024
 extern float toBW(int bytes, float sec);
 
 #define DEBUG
@@ -65,6 +65,22 @@ __global__ void cuda_es_upsweep(int* device_result, int twod, int twod1) {
     device_result[i] += device_result[i - twod];
 }
 
+__global__ void cuda_es_upsweep_varblock(int* device_result,
+                                         int twod, int twod1,
+                                         int rounded_length,
+                                         int active_int) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int dst_index = (i + 1) * twod1 - 1;
+    unsigned int src_index = dst_index - twod;
+    unsigned int unsigned_rounded_length = rounded_length;
+    if (dst_index < unsigned_rounded_length) {
+        // if (active_int == 2)
+        //     printf("dst_index: %d\n", dst_index);
+        device_result[dst_index] += device_result[src_index];
+    }
+}
+
+
 __global__ void cuda_es_downsweep(int* device_result, int twod, int twod1) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if ((i + 1) % twod1 != 0) {
@@ -73,6 +89,21 @@ __global__ void cuda_es_downsweep(int* device_result, int twod, int twod1) {
     int t = device_result[i - twod];
     device_result[i - twod] = device_result[i];
     device_result[i] += t;
+}
+
+__global__ void cuda_es_downsweep_varblock(int* device_result,
+                                           int twod, int twod1,
+                                           int rounded_length) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int dst_index = (i + 1) * twod1 - 1;
+    unsigned int src_index = dst_index - twod;
+    unsigned int rounded_length_unisigned = rounded_length;
+
+    if (dst_index < rounded_length_unisigned) {
+        int t = device_result[src_index];
+        device_result[src_index] = device_result[dst_index];
+        device_result[dst_index] += t;
+    }
 }
 
 void exclusive_scan(int* device_start, int length, int* device_result) {
@@ -105,10 +136,12 @@ void exclusive_scan(int* device_start, int length, int* device_result) {
     for (int twod = 1; twod < rounded_length / 2; twod *= 2) {
         int twod1 = twod * 2;
         cuda_es_upsweep<<<blockPerGrid, threadsPerBlock>>>(device_result, twod, twod1);
-        cudaCheckError(cudaThreadSynchronize());
+        cudaCheckError(cudaThreadSynchronize()); 
     }
     // print_int_device_memory(device_result, length);
+    // exit(1);
     cudaCheckError(cudaMemset(device_result + rounded_length - 1, 0, sizeof(int)));
+    // exit(1);
     // print_int_device_memory(device_result, rounded_length);
 
     // printf("\ncuda_es_downsweep\n");
@@ -118,6 +151,42 @@ void exclusive_scan(int* device_start, int length, int* device_result) {
         cuda_es_downsweep<<<blockPerGrid, threadsPerBlock>>>(device_result, twod, twod1);
         cudaCheckError(cudaThreadSynchronize());
     }
+    // print_int_device_memory(device_result, rounded_length);
+}
+
+void exclusive_scan_varblock(int* device_start, int length, int* device_result) {
+    int threadsPerBlock = THREADS_PER_BLOCK;
+    int rounded_length = nextPow2(length);
+    int blockPerGrid = std::max(1, rounded_length / threadsPerBlock / 2);
+
+    printf("threadsPerBlock: %d, rounded_length: %d, blockPerGrid: %d\n",
+            threadsPerBlock, rounded_length, blockPerGrid);
+    // print_int_device_memory(device_result, rounded_length);
+    int active_int = rounded_length / 2;
+    for (int twod = 1; twod < rounded_length / 2; twod *= 2) {
+        int twod1 = twod * 2;
+        // printf("blockPerGrid: %d, active_int: %d\n", blockPerGrid, active_int);
+        cuda_es_upsweep_varblock<<<blockPerGrid, threadsPerBlock>>>(device_result, twod, twod1, rounded_length, active_int);
+        cudaCheckError(cudaThreadSynchronize());
+        blockPerGrid = std::max(1, blockPerGrid/2);
+        active_int /= 2;
+    }
+    // print_int_device_memory(device_result, rounded_length);
+    // exit(1);
+    cudaError_t cudaError =
+                cudaMemset(device_result + rounded_length - 1, 0, sizeof(int));
+    cudaCheckError(cudaError);
+
+    int active_item = 1;
+    for (int twod = rounded_length / 2; twod >=1; twod /= 2)
+    {
+        int twod1 = twod * 2;
+        cuda_es_downsweep_varblock<<<blockPerGrid, threadsPerBlock>>>(device_result, twod, twod1, rounded_length);
+        cudaCheckError(cudaThreadSynchronize());
+        active_item *= 2;
+        blockPerGrid = std::max(1, active_item / THREADS_PER_BLOCK);
+    }
+
     // print_int_device_memory(device_result, rounded_length);
 }
 
@@ -152,6 +221,7 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
     double startTime = CycleTimer::currentSeconds();
 
     exclusive_scan(device_input, end - inarray, device_result);
+    // exclusive_scan_varblock(device_input, end - inarray, device_result);
 
     // Wait for any work left over to be completed.
     cudaThreadSynchronize();
