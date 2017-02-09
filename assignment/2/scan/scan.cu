@@ -118,7 +118,7 @@ void exclusive_scan(int* device_start, int length, int* device_result) {
      */
     int threadsPerBlock = THREADS_PER_BLOCK;
     int rounded_length = nextPow2(length);
-    int blockPerGrid = rounded_length / threadsPerBlock;
+    int blockPerGrid = std::max(1, rounded_length / threadsPerBlock / 2);
     // int len = 128;
     // int device_result_debug[4096] = {0};
     // cudaMemcpy(device_result_debug, device_result, len * sizeof(int),
@@ -138,7 +138,7 @@ void exclusive_scan(int* device_start, int length, int* device_result) {
         cuda_es_upsweep<<<blockPerGrid, threadsPerBlock>>>(device_result, twod, twod1);
         cudaCheckError(cudaThreadSynchronize()); 
     }
-    // print_int_device_memory(device_result, length);
+    print_int_device_memory(device_result, length);
     // exit(1);
     cudaCheckError(cudaMemset(device_result + rounded_length - 1, 0, sizeof(int)));
     // exit(1);
@@ -190,6 +190,61 @@ void exclusive_scan_varblock(int* device_start, int length, int* device_result) 
     // print_int_device_memory(device_result, rounded_length);
 }
 
+
+__global__ void exclusive_scan_sharedmemory(int* device_start,
+                                            unsigned int rd_len,
+                                            int* device_result) {
+    __shared__ int work_set[THREADS_PER_BLOCK * 2];
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int src1 = 2 * i + 1;
+    unsigned int src2 = 2 * i;
+
+    if (src1 < rd_len) {
+        work_set[src2] = device_result[src2];
+        work_set[src1] = device_result[src1] + work_set[src2];
+    }
+    __syncthreads();
+
+    unsigned int offset = 2;
+    for (unsigned int work_thrds = rd_len / 4; work_thrds > 1; work_thrds /= 2) 
+    {
+        if (i < work_thrds) {
+            int src1_index = 2 * offset * (i + 1) - 1;
+            int src0_index = src1_index - offset;
+            work_set[src1_index] += work_set[src0_index];
+        } 
+        __syncthreads();
+        offset *= 2;
+    }
+
+    if (i == 0) {
+        work_set[rd_len - 1] = 0;
+    }
+
+    // unsigned int work_thrds_limit = rd_len / 2;
+    offset = rd_len / 2;
+    for (unsigned int work_thrds = 1;
+         work_thrds < rd_len;
+         work_thrds *= 2) {
+        if (i < work_thrds) {
+            int src1_index = 2 * offset * (i + 1) - 1;
+            int src0_index = src1_index - offset;
+            int swap = work_set[src0_index];
+            work_set[src0_index] = work_set[src1_index];
+            work_set[src1_index] += swap;
+        }
+        // if (work_thrds == 4)
+        //     break;
+        __syncthreads();
+        offset /= 2;
+    }
+
+    // __syncthreads();
+    if (src1 < rd_len) {
+        device_result[src1] = work_set[src1] ;
+        device_result[src2] = work_set[src2] ;
+    }
+}
 /* This function is a wrapper around the code you will write - it copies the
  * input to the GPU and times the invocation of the exclusive_scan() function
  * above. You should not modify it.
@@ -220,8 +275,13 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
     // exit(1);
     double startTime = CycleTimer::currentSeconds();
 
-    exclusive_scan(device_input, end - inarray, device_result);
+    // exclusive_scan(device_input, end - inarray, device_result);
     // exclusive_scan_varblock(device_input, end - inarray, device_result);
+    int threadsPerBlock = THREADS_PER_BLOCK;
+    int blockPerGrid = 1;
+    exclusive_scan_sharedmemory<<<blockPerGrid, threadsPerBlock>>>(device_input, rounded_length, device_result);
+    print_int_device_memory(device_result, end - inarray);
+    exit(1);
 
     // Wait for any work left over to be completed.
     cudaThreadSynchronize();
