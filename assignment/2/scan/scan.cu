@@ -11,13 +11,30 @@
 
 #include "CycleTimer.h"
 
+#define THREADS_PER_BLOCK 256
 extern float toBW(int bytes, float sec);
 
+#define DEBUG
 
-/* Helper function to round up to a power of 2. 
- */
-static inline int nextPow2(int n)
+#ifdef DEBUG
+#define cudaCheckError(ans) { cudaAssert((ans), __FILE__, __LINE__); }
+inline void cudaAssert(cudaError_t code, const char *file, int line,
+                       bool abort=true)
 {
+    if (code != cudaSuccess) 
+    {
+        fprintf(stderr, "CUDA Error: %s at %s:%d\n", 
+            cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
+}
+#else
+#define cudaCheckError(ans) ans
+#endif
+
+/* Helper function to round up to a power of 2.
+ */
+static inline int nextPow2(int n) {
     n--;
     n |= n >> 1;
     n |= n >> 2;
@@ -28,37 +45,89 @@ static inline int nextPow2(int n)
     return n;
 }
 
-void exclusive_scan(int* device_start, int length, int* device_result)
-{
+void print_int_device_memory(int* device_result, int len) {
+    int device_result_debug[2048] = {0};
+    cudaCheckError(cudaMemcpy(device_result_debug, device_result, len * sizeof(int),
+               cudaMemcpyDeviceToHost));
+    printf("printing array:\n");
+    for (int i = 0; i < len; i++) {
+        printf("%d ", device_result_debug[i]);
+    }
+    printf("\n");
+    // delete[] device_mem_debug;
+}
+
+__global__ void cuda_es_upsweep(int* device_result, int twod, int twod1) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    device_result[i + twod1 - 1] += device_result[i + twod - 1];
+}
+
+__global__ void cuda_es_downsweep(int* device_result, int twod, int twod1) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    int t = device_result[i + twod -1];
+    device_result[i + twod - 1] = device_result[i + twod1 - 1];
+    device_result[i + twod1 - 1] += t;
+}
+
+void exclusive_scan(int* device_start, int length, int* device_result) {
     /* Fill in this function with your exclusive scan implementation.
      * You are passed the locations of the input and output in device memory,
-     * but this is host code -- you will need to declare one or more CUDA 
+     * but this is host code -- you will need to declare one or more CUDA
      * kernels (with the __global__ decorator) in order to actually run code
      * in parallel on the GPU.
      * Note you are given the real length of the array, but may assume that
      * both the input and the output arrays are sized to accommodate the next
      * power of 2 larger than the input.
      */
+    int threadsPerBlock = THREADS_PER_BLOCK;
+    int rounded_length = nextPow2(length);
+    int blockPerGrid = rounded_length / threadsPerBlock;
+    // int len = 128;
+    // int device_result_debug[4096] = {0};
+    // cudaMemcpy(device_result_debug, device_result, len * sizeof(int),
+    //            cudaMemcpyDeviceToHost);
+    // printf("printing array:\n");
+    // for (int i = 0; i < len; i++) {
+    //     printf("%d ", device_result_debug[i]);
+    // }
+    // printf("\n");
+
+    print_int_device_memory(device_result, 128);
+    printf("\ncuda_es_upsweep\n");
+    for (int twod = 1; twod < rounded_length; twod *= 2) {
+        int twod1 = twod * 2;
+        cuda_es_upsweep<<<blockPerGrid, threadsPerBlock>>>(device_result, twod, twod1);
+        cudaCheckError(cudaThreadSynchronize());
+    }
+    print_int_device_memory(device_result, 128);
+    cudaCheckError(cudaMemset(device_result + length - 1, 0, sizeof(int)));
+    printf("\ncuda_es_downsweep\n");
+    for (int twod = rounded_length / 2; twod >=1; twod /= 2)
+    {
+        int twod1 = twod * 2;
+        cuda_es_downsweep<<<blockPerGrid, threadsPerBlock>>>(device_result, twod, twod1);
+        cudaCheckError(cudaThreadSynchronize());
+    }
+    print_int_device_memory(device_result, 128);
 }
 
 /* This function is a wrapper around the code you will write - it copies the
  * input to the GPU and times the invocation of the exclusive_scan() function
  * above. You should not modify it.
  */
-double cudaScan(int* inarray, int* end, int* resultarray)
-{
+double cudaScan(int* inarray, int* end, int* resultarray) {
     int* device_result;
-    int* device_input; 
+    int* device_input;
     // We round the array sizes up to a power of 2, but elements after
     // the end of the original input are left uninitialized and not checked
-    // for correctness. 
-    // You may have an easier time in your implementation if you assume the 
+    // for correctness.
+    // You may have an easier time in your implementation if you assume the
     // array's length is a power of 2, but this will result in extra work on
     // non-power-of-2 inputs.
     int rounded_length = nextPow2(end - inarray);
     cudaMalloc((void **)&device_result, sizeof(int) * rounded_length);
     cudaMalloc((void **)&device_input, sizeof(int) * rounded_length);
-    cudaMemcpy(device_input, inarray, (end - inarray) * sizeof(int), 
+    cudaMemcpy(device_input, inarray, (end - inarray) * sizeof(int),
                cudaMemcpyHostToDevice);
 
     // For convenience, both the input and output vectors on the device are
@@ -66,7 +135,7 @@ double cudaScan(int* inarray, int* end, int* resultarray)
     // implement an in-place scan on the result vector if you wish.
     // If you do this, you will need to keep that fact in mind when calling
     // exclusive_scan from find_repeats.
-    cudaMemcpy(device_result, inarray, (end - inarray) * sizeof(int), 
+    cudaMemcpy(device_result, inarray, (end - inarray) * sizeof(int),
                cudaMemcpyHostToDevice);
 
     double startTime = CycleTimer::currentSeconds();
@@ -77,7 +146,7 @@ double cudaScan(int* inarray, int* end, int* resultarray)
     cudaThreadSynchronize();
     double endTime = CycleTimer::currentSeconds();
     double overallDuration = endTime - startTime;
-    
+
     cudaMemcpy(resultarray, device_result, (end - inarray) * sizeof(int),
                cudaMemcpyDeviceToHost);
     return overallDuration;
@@ -94,8 +163,8 @@ double cudaScanThrust(int* inarray, int* end, int* resultarray) {
     int length = end - inarray;
     thrust::device_ptr<int> d_input = thrust::device_malloc<int>(length);
     thrust::device_ptr<int> d_output = thrust::device_malloc<int>(length);
-    
-    cudaMemcpy(d_input.get(), inarray, length * sizeof(int), 
+
+    cudaMemcpy(d_input.get(), inarray, length * sizeof(int),
                cudaMemcpyHostToDevice);
 
     double startTime = CycleTimer::currentSeconds();
@@ -121,10 +190,10 @@ int find_repeats(int *device_input, int length, int *device_output) {
      * make use of one or more calls to exclusive_scan(), as well as
      * additional CUDA kernel launches.
      * Note: As in the scan code, we ensure that allocated arrays are a power
-     * of 2 in size, so you can use your exclusive_scan function with them if 
+     * of 2 in size, so you can use your exclusive_scan function with them if
      * it requires that. However, you must ensure that the results of
      * find_repeats are correct given the original length.
-     */    
+     */
     return 0;
 }
 
@@ -136,11 +205,11 @@ double cudaFindRepeats(int *input, int length, int *output, int *output_length) 
     int rounded_length = nextPow2(length);
     cudaMalloc((void **)&device_input, rounded_length * sizeof(int));
     cudaMalloc((void **)&device_output, rounded_length * sizeof(int));
-    cudaMemcpy(device_input, input, length * sizeof(int), 
+    cudaMemcpy(device_input, input, length * sizeof(int),
                cudaMemcpyHostToDevice);
 
     double startTime = CycleTimer::currentSeconds();
-    
+
     int result = find_repeats(device_input, length, device_output);
 
     cudaThreadSynchronize();
@@ -157,8 +226,7 @@ double cudaFindRepeats(int *input, int length, int *output, int *output_length) 
     return endTime - startTime;
 }
 
-void printCudaInfo()
-{
+void printCudaInfo() {
     // for fun, just print out some stats on the machine
 
     int deviceCount = 0;
@@ -167,8 +235,7 @@ void printCudaInfo()
     printf("---------------------------------------------------------\n");
     printf("Found %d CUDA devices\n", deviceCount);
 
-    for (int i=0; i<deviceCount; i++)
-    {
+    for (int i = 0; i < deviceCount; i++) {
         cudaDeviceProp deviceProps;
         cudaGetDeviceProperties(&deviceProps, i);
         printf("Device %d: %s\n", i, deviceProps.name);
@@ -177,5 +244,5 @@ void printCudaInfo()
                static_cast<float>(deviceProps.totalGlobalMem) / (1024 * 1024));
         printf("   CUDA Cap:   %d.%d\n", deviceProps.major, deviceProps.minor);
     }
-    printf("---------------------------------------------------------\n"); 
+    printf("---------------------------------------------------------\n");
 }
