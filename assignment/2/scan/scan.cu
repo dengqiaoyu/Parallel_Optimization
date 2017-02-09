@@ -45,28 +45,34 @@ static inline int nextPow2(int n) {
     return n;
 }
 
-void print_int_device_memory(int* device_result, int len) {
-    int device_result_debug[2048] = {0};
-    cudaCheckError(cudaMemcpy(device_result_debug, device_result, len * sizeof(int),
+void print_int_device_memory(int* device_memory, int len) {
+    int* device_memmory_debug = new int[len];
+    cudaCheckError(cudaMemcpy(device_memmory_debug, device_memory, len * sizeof(int),
                cudaMemcpyDeviceToHost));
-    printf("printing array:\n");
+    printf("printing array, length: %d\n", len);
     for (int i = 0; i < len; i++) {
-        printf("%d ", device_result_debug[i]);
+        printf("%d ", device_memmory_debug[i]);
     }
     printf("\n");
-    // delete[] device_mem_debug;
+    delete[] device_memmory_debug;
 }
 
 __global__ void cuda_es_upsweep(int* device_result, int twod, int twod1) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
-    device_result[i + twod1 - 1] += device_result[i + twod - 1];
+    if ((i + 1) % twod1 != 0) {
+        return;
+    }
+    device_result[i] += device_result[i - twod];
 }
 
 __global__ void cuda_es_downsweep(int* device_result, int twod, int twod1) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
-    int t = device_result[i + twod -1];
-    device_result[i + twod - 1] = device_result[i + twod1 - 1];
-    device_result[i + twod1 - 1] += t;
+    if ((i + 1) % twod1 != 0) {
+        return;
+    }
+    int t = device_result[i - twod];
+    device_result[i - twod] = device_result[i];
+    device_result[i] += t;
 }
 
 void exclusive_scan(int* device_start, int length, int* device_result) {
@@ -91,24 +97,28 @@ void exclusive_scan(int* device_start, int length, int* device_result) {
     //     printf("%d ", device_result_debug[i]);
     // }
     // printf("\n");
-
-    print_int_device_memory(device_result, 128);
-    printf("\ncuda_es_upsweep\n");
-    for (int twod = 1; twod < rounded_length; twod *= 2) {
+    printf("threadsPerBlock: %d, rounded_length: %d, blockPerGrid: %d\n",
+            threadsPerBlock, rounded_length, blockPerGrid);
+    // print_int_device_memory(device_result, length);
+    // printf("\ncuda_es_upsweep\n");
+    
+    for (int twod = 1; twod < rounded_length / 2; twod *= 2) {
         int twod1 = twod * 2;
         cuda_es_upsweep<<<blockPerGrid, threadsPerBlock>>>(device_result, twod, twod1);
         cudaCheckError(cudaThreadSynchronize());
     }
-    print_int_device_memory(device_result, 128);
-    cudaCheckError(cudaMemset(device_result + length - 1, 0, sizeof(int)));
-    printf("\ncuda_es_downsweep\n");
+    // print_int_device_memory(device_result, length);
+    cudaCheckError(cudaMemset(device_result + rounded_length - 1, 0, sizeof(int)));
+    // print_int_device_memory(device_result, rounded_length);
+
+    // printf("\ncuda_es_downsweep\n");
     for (int twod = rounded_length / 2; twod >=1; twod /= 2)
     {
         int twod1 = twod * 2;
         cuda_es_downsweep<<<blockPerGrid, threadsPerBlock>>>(device_result, twod, twod1);
         cudaCheckError(cudaThreadSynchronize());
     }
-    print_int_device_memory(device_result, 128);
+    // print_int_device_memory(device_result, rounded_length);
 }
 
 /* This function is a wrapper around the code you will write - it copies the
@@ -137,7 +147,8 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
     // exclusive_scan from find_repeats.
     cudaMemcpy(device_result, inarray, (end - inarray) * sizeof(int),
                cudaMemcpyHostToDevice);
-
+    // print_int_device_memory(device_result, (end - inarray));
+    // exit(1);
     double startTime = CycleTimer::currentSeconds();
 
     exclusive_scan(device_input, end - inarray, device_result);
