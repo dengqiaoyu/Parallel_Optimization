@@ -32,6 +32,8 @@ inline void cudaAssert(cudaError_t code, const char *file, int line,
 #define cudaCheckError(ans) ans
 #endif
 
+void es_shm_pcom_mulb(int *device_result, int rd_len, int real_len);
+
 /* Helper function to round up to a power of 2.
  */
 static inline int nextPow2(int n) {
@@ -191,25 +193,33 @@ void exclusive_scan_varblock(int* device_start, int length, int* device_result) 
 }
 
 
-__global__ void exclusive_scan_sharedmemory(int* device_start,
-                                            unsigned int rd_len,
-                                            int* device_result) {
+__global__ void es_shm_pcom_perb_kernel(int* device_result,
+                                        unsigned int rd_len,
+                                        int* block_sum) {
     __shared__ int work_set[THREADS_PER_BLOCK * 2];
-    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int src1 = 2 * i + 1;
-    unsigned int src2 = 2 * i;
+    unsigned int bid = blockIdx.x;
+    // printf("bid: %d\n", bid);
+    unsigned int tid = threadIdx.x;
+    // printf("tid: %d\n", tid);
+    unsigned int gid = blockDim.x * bid + tid;
 
-    if (src1 < rd_len) {
-        work_set[src2] = device_result[src2];
-        work_set[src1] = device_result[src1] + work_set[src2];
+    unsigned int src1_in_sharemem = 2 * tid + 1;
+    unsigned int src2_in_sharemem = 2 * tid;
+    unsigned int src1_in_device = 2 * gid + 1;
+    unsigned int src2_in_device = 2 * gid;
+
+    if (src1_in_device < rd_len) {
+        work_set[src2_in_sharemem] = device_result[src2_in_device];
+        work_set[src1_in_sharemem] = device_result[src1_in_device]
+                                   + work_set[src2_in_sharemem];
     }
     __syncthreads();
 
     unsigned int offset = 2;
     for (unsigned int work_thrds = rd_len / 4; work_thrds > 1; work_thrds /= 2) 
     {
-        if (i < work_thrds) {
-            int src1_index = 2 * offset * (i + 1) - 1;
+        if (tid < work_thrds) {
+            int src1_index = 2 * offset * (tid + 1) - 1;
             int src0_index = src1_index - offset;
             work_set[src1_index] += work_set[src0_index];
         } 
@@ -217,18 +227,33 @@ __global__ void exclusive_scan_sharedmemory(int* device_start,
         offset *= 2;
     }
 
-    if (i == 0) {
-        work_set[rd_len - 1] = 0;
-    }
 
+    if (tid == blockDim.x - 1) {
+        printf("entering 0\n");
+        printf("tid: %d, bid: %d\n", tid, bid);
+        printf("work_set[2 * (tid + 1) - 1]: %d\n", work_set[2 * (tid + 1) - 1]);
+        block_sum[bid] = work_set[2 * (tid + 1) - 1];
+        work_set[2 * (tid + 1) - 1] = 0;
+    }
+    //bugbugbug
+    __syncthreads();
+    // if (src1_in_device < rd_len) {
+    //     device_result[src1_in_device] = work_set[src1_in_sharemem] ;
+    //     device_result[src2_in_device] = work_set[src2_in_sharemem] ;
+    // }
+
+    // return;
     // unsigned int work_thrds_limit = rd_len / 2;
+    // printf("rd_len: %d\n", rd_len);
     offset = rd_len / 2;
     for (unsigned int work_thrds = 1;
          work_thrds < rd_len;
          work_thrds *= 2) {
-        if (i < work_thrds) {
-            int src1_index = 2 * offset * (i + 1) - 1;
+        if (tid < work_thrds) {
+            int src1_index = 2 * offset * (tid + 1) - 1;
             int src0_index = src1_index - offset;
+            // printf("src1_index: %d, src0_index: %d\n", src1_index, src0_index);
+            // printf("work_set[src0_index]: %d, work_set[src1_index]: %d\n", work_set[src0_index], work_set[src1_index]);
             int swap = work_set[src0_index];
             work_set[src0_index] = work_set[src1_index];
             work_set[src1_index] += swap;
@@ -236,13 +261,18 @@ __global__ void exclusive_scan_sharedmemory(int* device_start,
         // if (work_thrds == 4)
         //     break;
         __syncthreads();
+        // if (src1_in_device < rd_len) {
+        //     device_result[src1_in_device] = work_set[src1_in_sharemem] ;
+        //     device_result[src2_in_device] = work_set[src2_in_sharemem] ;
+        // }
+        // return;
         offset /= 2;
     }
 
     // __syncthreads();
-    if (src1 < rd_len) {
-        device_result[src1] = work_set[src1] ;
-        device_result[src2] = work_set[src2] ;
+    if (src1_in_device < rd_len) {
+        device_result[src1_in_device] = work_set[src1_in_sharemem] ;
+        device_result[src2_in_device] = work_set[src2_in_sharemem] ;
     }
 }
 /* This function is a wrapper around the code you will write - it copies the
@@ -258,9 +288,11 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
     // You may have an easier time in your implementation if you assume the
     // array's length is a power of 2, but this will result in extra work on
     // non-power-of-2 inputs.
-    int rounded_length = nextPow2(end - inarray);
+    int rounded_length = std::max(nextPow2(end - inarray), THREADS_PER_BLOCK * 2);
     cudaMalloc((void **)&device_result, sizeof(int) * rounded_length);
+    cudaMemset(device_result, 0, rounded_length * sizeof(int));
     cudaMalloc((void **)&device_input, sizeof(int) * rounded_length);
+    cudaMemset(device_result, 0, rounded_length * sizeof(int));
     cudaMemcpy(device_input, inarray, (end - inarray) * sizeof(int),
                cudaMemcpyHostToDevice);
 
@@ -271,16 +303,15 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
     // exclusive_scan from find_repeats.
     cudaMemcpy(device_result, inarray, (end - inarray) * sizeof(int),
                cudaMemcpyHostToDevice);
-    // print_int_device_memory(device_result, (end - inarray));
+    // print_int_device_memory(device_result, rounded_length);
     // exit(1);
     double startTime = CycleTimer::currentSeconds();
 
     // exclusive_scan(device_input, end - inarray, device_result);
     // exclusive_scan_varblock(device_input, end - inarray, device_result);
-    int threadsPerBlock = THREADS_PER_BLOCK;
-    int blockPerGrid = 1;
-    exclusive_scan_sharedmemory<<<blockPerGrid, threadsPerBlock>>>(device_input, rounded_length, device_result);
-    print_int_device_memory(device_result, end - inarray);
+
+    es_shm_pcom_mulb(device_result, rounded_length, end - inarray);
+    // print_int_device_memory(device_result, end - inarray);
     exit(1);
 
     // Wait for any work left over to be completed.
@@ -291,6 +322,43 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
     cudaMemcpy(resultarray, device_result, (end - inarray) * sizeof(int),
                cudaMemcpyDeviceToHost);
     return overallDuration;
+}
+
+__global__ void add_sum_kernel(int* device_result, int* block_sum,
+                               unsigned int block_sum_len) {
+    unsigned int bid = blockIdx.x;
+    unsigned int tid = threadIdx.x;
+    unsigned int gid = blockDim.x * bid + tid;
+    if (bid > 0)
+        device_result[gid] += block_sum[bid - 1];
+}
+
+void es_shm_pcom_mulb(int *device_result, int rd_len, int real_len) {
+    int threadsPerBlock = THREADS_PER_BLOCK;
+    int blockPerGrid = std::max(1, rd_len / (THREADS_PER_BLOCK * 2));
+    int* block_sum;
+    unsigned int rd_block_sum_len = std::max(nextPow2(blockPerGrid), THREADS_PER_BLOCK * 2);
+    cudaMalloc((void **)&block_sum, sizeof(int) * rd_block_sum_len);
+    cudaMemset(block_sum, 0, sizeof(int) * rd_block_sum_len);
+    
+    printf("threadsPerBlock: %d, blockPerGrid: %d, rd_len: %d\n",
+            threadsPerBlock,
+            blockPerGrid,
+            rd_len);
+    es_shm_pcom_perb_kernel<<<blockPerGrid, threadsPerBlock>>>(device_result, rd_len, block_sum);
+    print_int_device_memory(device_result, real_len);
+    print_int_device_memory(block_sum, blockPerGrid);
+    exit(1);
+    if (blockPerGrid <= THREADS_PER_BLOCK * 2) {
+        es_shm_pcom_perb_kernel<<<blockPerGrid, threadsPerBlock>>>(device_result, rd_len, block_sum);
+    } else {
+        es_shm_pcom_mulb(block_sum, rd_block_sum_len, blockPerGrid);
+    }
+
+    threadsPerBlock = THREADS_PER_BLOCK;
+    blockPerGrid = std::max(1, blockPerGrid / THREADS_PER_BLOCK);
+    add_sum_kernel<<<blockPerGrid, threadsPerBlock>>>(device_result, block_sum, blockPerGrid);
+    cudaFree(block_sum);
 }
 
 /* Wrapper around the Thrust library's exclusive scan function
