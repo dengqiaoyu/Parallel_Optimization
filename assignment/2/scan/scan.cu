@@ -319,7 +319,7 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
     // exit(1);
 
     // Wait for any work left over to be completed.
-    cudaThreadSynchronize();
+    // cudaThreadSynchronize();
     double endTime = CycleTimer::currentSeconds();
     double overallDuration = endTime - startTime;
 
@@ -347,8 +347,7 @@ __global__ void add_sum_kernel(int* device_result, int* block_sum,
         // printf("block_sum_shared[%d]: %d\n", 2 * tid + 1, block_sum_shared[2 * tid + 1]);
 
     }
-    __syncthreads();
-
+    
     if (2 * tid < block_sum_len) {
         // printf("tid: %d\n", tid);
         unsigned int offset = THREADS_PER_BLOCK * 2;
@@ -358,10 +357,20 @@ __global__ void add_sum_kernel(int* device_result, int* block_sum,
             device_result[i + offset_t + offset] += block_sum_shared[2 * tid + 1];
         }
     }
-    __syncthreads();
+    // __syncthreads();
+}
+
+__global__ void add_sum_kernel_2(int* device_result, int* block_sum,
+                                 int real_num) {
+    unsigned int gid = blockDim.x * blockIdx.x + threadIdx.x;
+    if (gid < real_num) {
+        unsigned int block_sum_index = gid / (THREADS_PER_BLOCK * 2);
+        device_result[gid] += block_sum[block_sum_index];
+    }
 }
 
 void es_shm_pcom_mulb(int *device_result, int rd_len, int real_len) {
+    double es_kernl_startTime = CycleTimer::currentSeconds();
     int threadsPerBlock = THREADS_PER_BLOCK;
     int blockPerGrid = std::max(1, rd_len / (THREADS_PER_BLOCK * 2));
     // printf("blockPerGrid: %d\n", blockPerGrid);
@@ -375,26 +384,41 @@ void es_shm_pcom_mulb(int *device_result, int rd_len, int real_len) {
     //         blockPerGrid,
     //         rd_len);
     es_shm_pcom_perb_kernel<<<blockPerGrid, threadsPerBlock>>>(device_result, rd_len, block_sum);
+    double es_kernl_endTime = CycleTimer::currentSeconds();
+    printf("ES_KERNEL_TIME: %f\n", (es_kernl_endTime - es_kernl_startTime)*1000);
+
     cudaCheckError(cudaThreadSynchronize());
     // print_int_device_memory(device_result, real_len);
     // print_int_device_memory(block_sum, blockPerGrid);
     // exit(1);
     if (blockPerGrid <= THREADS_PER_BLOCK * 2) {
+        double es_kernel_sum_startTime = CycleTimer::currentSeconds();
         int block_sum_blockPerGrid = std::max((unsigned int)1, rd_block_sum_len / (THREADS_PER_BLOCK * 2));
         int *block_sum_last = 0;
         cudaMalloc((void **)&block_sum_last, sizeof(int));
         es_shm_pcom_perb_kernel<<<block_sum_blockPerGrid, threadsPerBlock>>>(block_sum, rd_block_sum_len, block_sum_last);
+        double es_kernel_sum_endTime = CycleTimer::currentSeconds();
+        printf("ES_KERNEL_SUM_TIME: %f\n", (es_kernel_sum_endTime - es_kernel_sum_startTime)*1000);
         // print_int_device_memory(block_sum, blockPerGrid);
         // exit(1);
     } else {
+        double es_mulb_startTime = CycleTimer::currentSeconds();
         es_shm_pcom_mulb(block_sum, rd_block_sum_len, blockPerGrid);
+        double es_mul_endTime = CycleTimer::currentSeconds();
+        printf("ES_MUL_TIME: %f\n", (es_mul_endTime - es_mulb_startTime)*1000);
     }
 
+    double addsum_startTime = CycleTimer::currentSeconds();
     threadsPerBlock = THREADS_PER_BLOCK;
-    add_sum_kernel<<<1, threadsPerBlock>>>(device_result, block_sum, blockPerGrid);
+    blockPerGrid = (real_len + threadsPerBlock - 1) / threadsPerBlock;
+    add_sum_kernel_2<<<blockPerGrid, threadsPerBlock>>>(device_result, block_sum, real_len);
+    // add_sum_kernel<<<1, threadsPerBlock>>>(device_result, block_sum, blockPerGrid);
+    cudaCheckError(cudaThreadSynchronize());
     // print_int_device_memory(device_result, real_len);
-    // exit(1);
     cudaFree(block_sum);
+    double addsum_endTime = CycleTimer::currentSeconds();
+    printf("ADD_TIME: %f\n", (addsum_endTime - addsum_startTime)*1000);
+    printf("TOTAL_TIME: %f\n", (addsum_endTime - es_kernl_startTime)*1000);
 }
 
 /* Wrapper around the Thrust library's exclusive scan function
