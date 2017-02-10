@@ -200,7 +200,8 @@ __global__ void es_shm_pcom_perb_kernel(int* device_result,
     unsigned int bid = blockIdx.x;
     // printf("bid: %d\n", bid);
     unsigned int tid = threadIdx.x;
-    // printf("tid: %d\n", tid);
+    // printf("bid: %d, tid: %d\n", bid, tid);
+    // return;
     unsigned int gid = blockDim.x * bid + tid;
 
     unsigned int src1_in_sharemem = 2 * tid + 1;
@@ -215,18 +216,21 @@ __global__ void es_shm_pcom_perb_kernel(int* device_result,
     }
     __syncthreads();
 
+    // printf("line 218\n");
     unsigned int offset = 2;
-    for (unsigned int work_thrds = rd_len / 4; work_thrds > 1; work_thrds /= 2) 
+    for (unsigned int work_thrds = THREADS_PER_BLOCK * 2 / 4; work_thrds >= 1; work_thrds /= 2) 
     {
         if (tid < work_thrds) {
             int src1_index = 2 * offset * (tid + 1) - 1;
             int src0_index = src1_index - offset;
+            // printf("src1_index: %d, src0_index: %d\n, bid: %d, tid: %d\n", src1_index, src0_index, bid, tid);
             work_set[src1_index] += work_set[src0_index];
         } 
         __syncthreads();
         offset *= 2;
     }
 
+    // printf("line 231\n");
 
     if (tid == blockDim.x - 1) {
         printf("entering 0\n");
@@ -243,11 +247,11 @@ __global__ void es_shm_pcom_perb_kernel(int* device_result,
     // }
 
     // return;
-    // unsigned int work_thrds_limit = rd_len / 2;
+    unsigned int work_thrds_limit = THREADS_PER_BLOCK * 2;
     // printf("rd_len: %d\n", rd_len);
-    offset = rd_len / 2;
+    offset = THREADS_PER_BLOCK * 2 / 2;
     for (unsigned int work_thrds = 1;
-         work_thrds < rd_len;
+         work_thrds < work_thrds_limit;
          work_thrds *= 2) {
         if (tid < work_thrds) {
             int src1_index = 2 * offset * (tid + 1) - 1;
@@ -311,7 +315,7 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
     // exclusive_scan_varblock(device_input, end - inarray, device_result);
 
     es_shm_pcom_mulb(device_result, rounded_length, end - inarray);
-    // print_int_device_memory(device_result, end - inarray);
+    print_int_device_memory(device_result, end - inarray);
     exit(1);
 
     // Wait for any work left over to be completed.
@@ -326,11 +330,32 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
 
 __global__ void add_sum_kernel(int* device_result, int* block_sum,
                                unsigned int block_sum_len) {
-    unsigned int bid = blockIdx.x;
+    // unsigned int tid = threadIdx.x;
+    // int offset = THREADS_PER_BLOCK * 2;    
+    // if (tid > 0) {
+    //     device_result[2 * gid] += block_sum[tid - 1];
+    //     device_result[2 * gid + 1] += block_sum[tid - 1];
+    //     for ()
+    // }
+    __shared__ int block_sum_shared[THREADS_PER_BLOCK * 2];
     unsigned int tid = threadIdx.x;
-    unsigned int gid = blockDim.x * bid + tid;
-    if (bid > 0)
-        device_result[gid] += block_sum[bid - 1];
+    if (2 * tid < block_sum_len) {
+        block_sum_shared[2 * tid] = block_sum[2 * tid];
+        block_sum_shared[2 * tid + 1] = block_sum[2 * tid + 1];
+        printf("tid: %d\n", tid);
+    }
+    __syncthreads();
+
+    if (2 * tid < block_sum_len) {
+        printf("tid: %d\n", tid);
+        unsigned int offset = THREADS_PER_BLOCK * 2;
+        unsigned int offset_t = offset * tid;
+        for (int i = 0; i < offset; i++) {
+            device_result[i + offset_t] += block_sum_shared[2 * tid];
+            device_result[i + offset_t + offset] += block_sum_shared[2 * tid + 1];
+        }
+    }
+    __syncthreads();
 }
 
 void es_shm_pcom_mulb(int *device_result, int rd_len, int real_len) {
@@ -346,18 +371,26 @@ void es_shm_pcom_mulb(int *device_result, int rd_len, int real_len) {
             blockPerGrid,
             rd_len);
     es_shm_pcom_perb_kernel<<<blockPerGrid, threadsPerBlock>>>(device_result, rd_len, block_sum);
-    print_int_device_memory(device_result, real_len);
-    print_int_device_memory(block_sum, blockPerGrid);
-    exit(1);
+    cudaCheckError(cudaThreadSynchronize());
+    // print_int_device_memory(device_result, real_len);
+    // print_int_device_memory(block_sum, blockPerGrid);
+    // exit(1);
     if (blockPerGrid <= THREADS_PER_BLOCK * 2) {
-        es_shm_pcom_perb_kernel<<<blockPerGrid, threadsPerBlock>>>(device_result, rd_len, block_sum);
+        int block_sum_blockPerGrid = std::max((unsigned int)1, rd_block_sum_len / (THREADS_PER_BLOCK * 2));
+        int *block_sum_last = 0;
+        cudaMalloc((void **)&block_sum_last, sizeof(int));
+        es_shm_pcom_perb_kernel<<<block_sum_blockPerGrid, threadsPerBlock>>>(block_sum, rd_block_sum_len, block_sum_last);
+        print_int_device_memory(block_sum, blockPerGrid);
+        exit(1);
     } else {
         es_shm_pcom_mulb(block_sum, rd_block_sum_len, blockPerGrid);
     }
 
     threadsPerBlock = THREADS_PER_BLOCK;
     blockPerGrid = std::max(1, blockPerGrid / THREADS_PER_BLOCK);
-    add_sum_kernel<<<blockPerGrid, threadsPerBlock>>>(device_result, block_sum, blockPerGrid);
+    add_sum_kernel<<<1, threadsPerBlock>>>(device_result, block_sum, blockPerGrid);
+    // print_int_device_memory(device_result, real_len);
+    exit(1);
     cudaFree(block_sum);
 }
 
