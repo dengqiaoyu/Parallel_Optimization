@@ -11,7 +11,19 @@
 
 #include "CycleTimer.h"
 
-#define THREADS_PER_BLOCK 1024
+#define THREADS_PER_BLOCK 128
+#define MAX_DATA_LENGTH_PERBLOCK (THREADS_PER_BLOCK * 2)
+#define NUM_BANKS 32
+#define LOG_NUM_BANKS 5
+
+#define CONFLICT_FREE
+
+#ifdef CONFLICT_FREE
+#define CONFLICT_FREE_OFFSET(n) \
+    ((n) >> NUM_BANKS + (n) >> (2 * LOG_NUM_BANKS))
+#else
+#define CONFLICT_FREE_OFFSET(n) 0
+#endif
 extern float toBW(int bytes, float sec);
 
 #define DEBUG
@@ -196,7 +208,7 @@ void exclusive_scan_varblock(int* device_start, int length, int* device_result) 
 __global__ void es_shm_pcom_perb_kernel(int* device_result,
                                         unsigned int rd_len,
                                         int* block_sum) {
-    __shared__ int work_set[THREADS_PER_BLOCK * 2];
+    __shared__ int work_set[MAX_DATA_LENGTH_PERBLOCK];
     unsigned int bid = blockIdx.x;
     // printf("bid: %d\n", bid);
     unsigned int tid = threadIdx.x;
@@ -204,28 +216,37 @@ __global__ void es_shm_pcom_perb_kernel(int* device_result,
     // return;
     unsigned int gid = blockDim.x * bid + tid;
 
+
     unsigned int src1_in_sharemem = 2 * tid + 1;
     unsigned int src2_in_sharemem = 2 * tid;
     unsigned int src1_in_device = 2 * gid + 1;
     unsigned int src2_in_device = 2 * gid;
+    unsigned int src1_offset = CONFLICT_FREE_OFFSET(src1_in_sharemem);
+    unsigned int src2_offset = CONFLICT_FREE_OFFSET(src2_in_sharemem);
 
     if (src1_in_device < rd_len) {
-        work_set[src2_in_sharemem] = device_result[src2_in_device];
-        work_set[src1_in_sharemem] = device_result[src1_in_device]
-                                   + work_set[src2_in_sharemem];
+        work_set[src2_in_sharemem + src2_offset] = device_result[src2_in_device];
+        work_set[src1_in_sharemem + src1_offset] = device_result[src1_in_device]
+                                   + work_set[src2_in_sharemem + src2_offset];
     }
     __syncthreads();
 
     // printf("line 218\n");
     unsigned int offset = 2;
-    for (unsigned int work_thrds = THREADS_PER_BLOCK * 2 / 4; work_thrds >= 1; work_thrds /= 2) 
+    for (unsigned int work_thrds = MAX_DATA_LENGTH_PERBLOCK / 4; work_thrds >= 1; work_thrds /= 2) 
     {
+        // printf("offset: %d\n", offset);
         if (tid < work_thrds) {
             int src1_index = 2 * offset * (tid + 1) - 1;
+            int src1_offseted_index = src1_index + CONFLICT_FREE_OFFSET(src1_index);
             int src0_index = src1_index - offset;
-            // printf("src1_index: %d, src0_index: %d\n, bid: %d, tid: %d\n", src1_index, src0_index, bid, tid);
-            work_set[src1_index] += work_set[src0_index];
-        } 
+            int src0_offseted_index = src0_index + CONFLICT_FREE_OFFSET(src0_index);
+            // if (tid < 32 && offset == 64) {
+            //     printf("src1_index: %d, src0_index: %d, bid: %d, tid: %d\n", src1_index, src0_index, bid, tid);
+            //     return;
+            // }
+            work_set[src1_offseted_index] += work_set[src0_offseted_index];
+        }
         __syncthreads();
         offset *= 2;
     }
@@ -247,20 +268,22 @@ __global__ void es_shm_pcom_perb_kernel(int* device_result,
     // }
 
     // return;
-    unsigned int work_thrds_limit = THREADS_PER_BLOCK * 2;
+    unsigned int work_thrds_limit = MAX_DATA_LENGTH_PERBLOCK;
     // printf("rd_len: %d\n", rd_len);
-    offset = THREADS_PER_BLOCK * 2 / 2;
+    offset = MAX_DATA_LENGTH_PERBLOCK / 2;
     for (unsigned int work_thrds = 1;
          work_thrds < work_thrds_limit;
          work_thrds *= 2) {
         if (tid < work_thrds) {
             int src1_index = 2 * offset * (tid + 1) - 1;
+            int src1_offseted_index = src1_index + CONFLICT_FREE_OFFSET(src1_index);
             int src0_index = src1_index - offset;
+            int src0_offseted_index = src0_index + CONFLICT_FREE_OFFSET(src0_index);
             // printf("src1_index: %d, src0_index: %d\n", src1_index, src0_index);
             // printf("work_set[src0_index]: %d, work_set[src1_index]: %d\n", work_set[src0_index], work_set[src1_index]);
-            int swap = work_set[src0_index];
-            work_set[src0_index] = work_set[src1_index];
-            work_set[src1_index] += swap;
+            int swap = work_set[src0_offseted_index];
+            work_set[src0_offseted_index] = work_set[src1_offseted_index];
+            work_set[src1_offseted_index] += swap;
         }
         // if (work_thrds == 4)
         //     break;
@@ -275,8 +298,8 @@ __global__ void es_shm_pcom_perb_kernel(int* device_result,
 
     // __syncthreads();
     if (src1_in_device < rd_len) {
-        device_result[src1_in_device] = work_set[src1_in_sharemem] ;
-        device_result[src2_in_device] = work_set[src2_in_sharemem] ;
+        device_result[src1_in_device] = work_set[src1_in_sharemem + src1_offset] ;
+        device_result[src2_in_device] = work_set[src2_in_sharemem + src2_offset] ;
     }
 }
 /* This function is a wrapper around the code you will write - it copies the
@@ -292,7 +315,7 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
     // You may have an easier time in your implementation if you assume the
     // array's length is a power of 2, but this will result in extra work on
     // non-power-of-2 inputs.
-    int rounded_length = std::max(nextPow2(end - inarray), THREADS_PER_BLOCK * 2);
+    int rounded_length = std::max(nextPow2(end - inarray), MAX_DATA_LENGTH_PERBLOCK);
     cudaMalloc((void **)&device_result, sizeof(int) * rounded_length);
     cudaMemset(device_result, 0, rounded_length * sizeof(int));
     cudaMalloc((void **)&device_input, sizeof(int) * rounded_length);
@@ -325,19 +348,21 @@ double cudaScan(int* inarray, int* end, int* resultarray) {
 
     cudaMemcpy(resultarray, device_result, (end - inarray) * sizeof(int),
                cudaMemcpyDeviceToHost);
+    cudaFree(device_result);
+    cudaFree(device_input);
     return overallDuration;
 }
 
 __global__ void add_sum_kernel(int* device_result, int* block_sum,
                                unsigned int block_sum_len) {
     // unsigned int tid = threadIdx.x;
-    // int offset = THREADS_PER_BLOCK * 2;    
+    // int offset = MAX_DATA_LENGTH_PERBLOCK;    
     // if (tid > 0) {
     //     device_result[2 * gid] += block_sum[tid - 1];
     //     device_result[2 * gid + 1] += block_sum[tid - 1];
     //     for ()
     // }
-    __shared__ int block_sum_shared[THREADS_PER_BLOCK * 2];
+    __shared__ int block_sum_shared[MAX_DATA_LENGTH_PERBLOCK];
     unsigned int tid = threadIdx.x;
     if (2 * tid < block_sum_len) {
         block_sum_shared[2 * tid] = block_sum[2 * tid];
@@ -350,9 +375,9 @@ __global__ void add_sum_kernel(int* device_result, int* block_sum,
     
     if (2 * tid < block_sum_len) {
         // printf("tid: %d\n", tid);
-        unsigned int offset = THREADS_PER_BLOCK * 2;
+        unsigned int offset = MAX_DATA_LENGTH_PERBLOCK;
         unsigned int offset_t = offset * tid * 2;
-        for (int i = 0; i < THREADS_PER_BLOCK * 2; i++) {
+        for (int i = 0; i < MAX_DATA_LENGTH_PERBLOCK; i++) {
             device_result[i + offset_t] += block_sum_shared[2 * tid];
             device_result[i + offset_t + offset] += block_sum_shared[2 * tid + 1];
         }
@@ -364,7 +389,7 @@ __global__ void add_sum_kernel_2(int* device_result, int* block_sum,
                                  int real_num) {
     unsigned int gid = blockDim.x * blockIdx.x + threadIdx.x;
     if (gid < real_num) {
-        unsigned int block_sum_index = gid / (THREADS_PER_BLOCK * 2);
+        unsigned int block_sum_index = gid / (MAX_DATA_LENGTH_PERBLOCK);
         device_result[gid] += block_sum[block_sum_index];
     }
 }
@@ -372,10 +397,10 @@ __global__ void add_sum_kernel_2(int* device_result, int* block_sum,
 void es_shm_pcom_mulb(int *device_result, int rd_len, int real_len) {
     double es_kernl_startTime = CycleTimer::currentSeconds();
     int threadsPerBlock = THREADS_PER_BLOCK;
-    int blockPerGrid = std::max(1, rd_len / (THREADS_PER_BLOCK * 2));
+    int blockPerGrid = std::max(1, rd_len / (MAX_DATA_LENGTH_PERBLOCK));
     // printf("blockPerGrid: %d\n", blockPerGrid);
     int* block_sum;
-    unsigned int rd_block_sum_len = std::max(nextPow2(blockPerGrid), THREADS_PER_BLOCK * 2);
+    unsigned int rd_block_sum_len = std::max(nextPow2(blockPerGrid), MAX_DATA_LENGTH_PERBLOCK);
     cudaMalloc((void **)&block_sum, sizeof(int) * rd_block_sum_len);
     cudaMemset(block_sum, 0, sizeof(int) * rd_block_sum_len);
     
@@ -384,19 +409,20 @@ void es_shm_pcom_mulb(int *device_result, int rd_len, int real_len) {
     //         blockPerGrid,
     //         rd_len);
     es_shm_pcom_perb_kernel<<<blockPerGrid, threadsPerBlock>>>(device_result, rd_len, block_sum);
+    cudaCheckError(cudaThreadSynchronize());
     double es_kernl_endTime = CycleTimer::currentSeconds();
     printf("ES_KERNEL_TIME: %f\n", (es_kernl_endTime - es_kernl_startTime)*1000);
 
-    cudaCheckError(cudaThreadSynchronize());
     // print_int_device_memory(device_result, real_len);
     // print_int_device_memory(block_sum, blockPerGrid);
     // exit(1);
-    if (blockPerGrid <= THREADS_PER_BLOCK * 2) {
+    if (blockPerGrid <= MAX_DATA_LENGTH_PERBLOCK) {
         double es_kernel_sum_startTime = CycleTimer::currentSeconds();
-        int block_sum_blockPerGrid = std::max((unsigned int)1, rd_block_sum_len / (THREADS_PER_BLOCK * 2));
+        int block_sum_blockPerGrid = std::max((unsigned int)1, rd_block_sum_len / (MAX_DATA_LENGTH_PERBLOCK));
         int *block_sum_last = 0;
         cudaMalloc((void **)&block_sum_last, sizeof(int));
         es_shm_pcom_perb_kernel<<<block_sum_blockPerGrid, threadsPerBlock>>>(block_sum, rd_block_sum_len, block_sum_last);
+        cudaCheckError(cudaThreadSynchronize());
         double es_kernel_sum_endTime = CycleTimer::currentSeconds();
         printf("ES_KERNEL_SUM_TIME: %f\n", (es_kernel_sum_endTime - es_kernel_sum_startTime)*1000);
         // print_int_device_memory(block_sum, blockPerGrid);
@@ -404,6 +430,7 @@ void es_shm_pcom_mulb(int *device_result, int rd_len, int real_len) {
     } else {
         double es_mulb_startTime = CycleTimer::currentSeconds();
         es_shm_pcom_mulb(block_sum, rd_block_sum_len, blockPerGrid);
+        cudaCheckError(cudaThreadSynchronize());
         double es_mul_endTime = CycleTimer::currentSeconds();
         printf("ES_MUL_TIME: %f\n", (es_mul_endTime - es_mulb_startTime)*1000);
     }

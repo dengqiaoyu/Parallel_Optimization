@@ -1,0 +1,305 @@
+15-418/618 Spring 2017
+Recitation Notes Week 4
+10 Feb 2017
+
+I. GETTING STARTED
+
+Login to one of the GHC machines (ghc[26-46].ghc.andrew.cmu.edu).
+
+Retrieve a copy of
+
+    /afs/cs.cmu.edu/academic/class/15418-s17/recitations/recw4.tar
+
+Untar it.  You'll see the subdirectories: "recw3-code/reduce"
+
+Within that directory, you will find programs "reduce-good", "reduce1"
+and "reduce2".
+
+Program reduce-good is the correct implementation, as coded in the
+file reduce.cu.  The other two programs were created by making
+single-line changes to the code in the kernel function
+inplaceReduceKernel.
+
+Your challenge for today is to track down those bugs.  When you think
+you know what the bug is, you should try to reproduce it by modifying
+the code in reduce.cu, compiling it (with "make") and seeing if you
+can reproduce the buggy behavior.
+
+The reduce program has many command-line options.  The most useful in
+this case will be to change the vector length (-n) and the reduction
+degree (-d).
+
+Useful references on CUDA debugging tools:
+
+http://on-demand.gputechconf.com/gtc/2012/presentations/S0027B-GTC2012-Debugging-MEMCHECK.pdf
+
+http://www.ece.neu.edu/groups/nucar/Analogic/cuda-gdb.pdf
+
+
+II. AVOIDING SURPRISES
+
+Much can be done to set up your code in ways that will assist in
+debugging.  Study the code in reduce.cu and main.cpp.  They contain
+several features to make the code easier to debug:
+
+A. Guard wrappers on all CUDA library calls:
+
+/* insert_break */
+Definitions in file reduce.cu:
+
+// Support for CUDA error checking
+// Wrapper for CUDA functions
+#define CHK(ans) gpuAssert((ans), __FILE__, __LINE__);
+
+// Checker
+inline void gpuAssert(cudaError_t code, const char *file, int line)
+{
+    if (code != cudaSuccess) {
+	fprintf(stderr, "GPUassert: %s %s %s\n",
+		cudaGetErrorString(code), file, line);
+    }
+}
+
+// Cannot wrap kernel launches.  Instead, insert this after each
+//   kernel launch.
+#define POSTKERNEL CHK(cudaPeekAtLastError())
+/* insert_break */
+
+Example use:
+// Reducer based on inplace reduction 
+float
+inplaceReduce(int length, float *srcVecDevice, float *scratchVecDevice) {
+    int threadsPerBlock = reduceThreadsPerBlock;
+    int degree = reduceDegree;
+    float val;
+    int nlength;
+    // Copy source data into scratch area so that can modify it
+    CHK(cudaMemcpy(scratchVecDevice, srcVecDevice,
+                   length * sizeof(float),
+		   cudaMemcpyDeviceToDevice));
+    for (; length > 1; length = nlength) {
+	nlength = UPDIV(length, degree);
+	int blocks = UPDIV(nlength, threadsPerBlock);
+	inplaceReduceKernel<<<blocks, threadsPerBlock>>>(length, nlength,
+						       scratchVecDevice);
+	POSTKERNEL;
+	CHK(cudaDeviceSynchronize());
+    }
+    CHK(cudaMemcpy(&val, &scratchVecDevice[0],
+		   sizeof(float), cudaMemcpyDeviceToHost));
+    return val;
+}
+/* insert_break */
+B. Features enabled by compiling code in DEBUG mode:
+
+From reduce.h:
+
+#ifndef DEBUG
+#define DEBUG 0
+#endif
+
+#if DEBUG
+#define THREADSPERBLOCK 32
+#else
+#define THREADSPERBLOCK 1024
+#endif
+
+From reduce.cuda:
+
+// Tunable parameters
+int reduceDegree = 2;
+float reduceTolerance = 0.001;
+#if DEBUG
+int reduceThreadsPerBlock = 32;
+int reduceRuns = 1;
+int reduceLength = 10;
+#else
+int reduceThreadsPerBlock = 1024;
+int reduceRuns = 250;
+int reduceLength = 1024 * 1024;
+#endif
+
+/* insert_break */
+From main.cpp:
+
+
+static void run_test(int length) {
+    float *data = new float[length];
+#if DEBUG
+    float targetVal = fixedData(length, data);
+#else    
+    float targetVal = randomData(length, data);
+#endif
+    double gflops;
+    gflops = cudaReduce(length, data, targetVal);
+    printf(
+"GFLOPS = %.2f. Length = %d, degree = %d, runs = %d, threads/block = %d\n",
+        gflops, length, reduceDegree, reduceRuns, reduceThreadsPerBlock);
+
+}
+
+static float fixedData(int length, float *data) {
+    float val = 0.0;
+    float base = 1.0;
+    float frac = 0.01;
+    for (i = 0; i < 10 && i < length; i++) {
+	data[i] = base + frac;
+	base *= 10.0;
+	val += data[i];
+    }
+    // Fill remainder with random values
+    if (i < length)
+	val += randomData(length-i, data+i);
+    printf("Input data:");
+    for (i = 0; i < 13 && i < length; i++)
+	printf("\t%.2f", data[i]);
+    if (length > i)
+	printf("\t...\tSum = %.2f\n", val);
+    else
+	printf("\tSum = %.2f\n", val);
+    return val;
+}
+/* insert_break */
+
+
+III. Testing the code:
+
+1. Run reduce, reduce1, and reduce2.  What messages information gets
+   printed out?  Run them for different values of length and degree.
+
+   a. Are the numbers too big or too large?
+
+   b. What is happens when you run the program with really small
+      values of n (e.g., 1, 2, 3, 4)?
+
+   d. Can you guess what sums are being computed that yield the values
+      that occur?
+
+   
+2. Understanding the correct code
+
+Recall what should happen with the kernel:
+
+// Destructively reduce data from length to nlength.
+__global__ void
+inplaceReduceKernel(int length, int nlength, float *data) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < nlength) {
+	float val = data[idx];
+	for (int i = idx + nlength; i < length; i += nlength)
+	    val += data[i];
+	data[idx] = val;
+    }
+}
+
+   a. Diagram the tree of reductions that should occur for length 3
+      and for length 4. 
+
+   b. What intermediate values should be computed?
+
+
+
+IV.  Running cuda-gdb on correct version
+
+Like GDB, but with capabilities to extract information from device.
+
+Some useful commands:
+
+     * break reduce.cu:90
+       Set breakpoint corresponding to line 90 of file reduce.cu.
+
+     * print ((@global float *) srcVecDevice)[1]
+       Print contents of array in device memory
+
+     * cuda thread 2
+       Shift focus to specified thread number
+
+     * info locals
+       Prints values of all currently-active local variables
+
+     * cuda info threads
+       Prints status of threads (in current block)
+
+1. For lengths 3 & 4, observe contents of scratchVecDevice for all
+   relevant positions before and after each thread launch.  Make sure
+   they match your expectations.
+
+2. Now clear breakpoints and rerun with a breakpoint set within the
+   kernel (line 68).
+
+   * When hit breakpoint, try examining values of threadIdx.x for
+     different threads
+
+   * Do single step (so that idx gets computed).  Checks its value for
+     different threads.
+
+   * Do single step into conditional.  What happens if try to shift
+     focus to thread for which the condition failed?
+
+   * Single step with focus in thread 0 until reach end.  Check out
+     local variables
+
+   * Repeat these steps for the second thread launch.
+
+V.  Debugging reduce1 with cuda-gdb
+
+1. Observe contents of scratchVecDevice for all relevant positions
+   before and after each thread launch.  Compare to the good case
+
+
+2. Clear breakpoints and set new one in kernel (line 68).
+
+   * Run with n=3 and step thread 0 into conditional.
+
+   * What happens when try to shift focus to a different thread?
+
+   * What does the command "cuda info threads" tell you about the
+     number of active threads.
+  
+   * Do the same with n=4.
+
+
+
+3. Can you put all this together to hypothesize how the kernel in
+   reduce1 differs from that in reduce-good?
+
+
+VI. Debugging reduce2 with cuda-gdb
+
+1. Observe contents of scratchVecDevice for all relevant positions
+   before and after each thread launch.  Compare to the good case
+
+
+
+2. Clear breakpoints and set new one in kernel (line 68).
+
+   * Run with n = 3 and single step with thread 0 as the focus
+   * What are the first two updates to variable val?
+   * Try switching to thread 1 (Command "cuda thread 1") and see
+     what val is there.
+   * Go back to thread 0 and look at the 3rd update.
+
+
+
+3. Can you put all this together to hypothesize how the kernel in
+   reduce2 differs from that in reduce-good?
+
+
+VII. 
+
+Other pieces of advice:
+
+* Even more so than with C programs, out-of-bounds memory writes in
+  CUDA lead to bizarre and erratic beahvior.
+  - Write bounds checking
+    code that gets invoked when program is run in DEBUG mode
+
+* It's possible to put printf's in kernel code, but don't rely on them
+  - Often nothing gets printed, or values printed are incorrect.
+  - Just because nothing prints, it doesn't mean that part of the code
+    wasn't reached.
+
+* Write host code that duplicates functionality of different parts of
+  CUDA code
+  - In debug mode, transfer results back to host memory and check
+    values against this code
