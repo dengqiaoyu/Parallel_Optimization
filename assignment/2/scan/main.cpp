@@ -133,6 +133,12 @@ int main(int argc, char** argv) {
 
     double cudaTime = 50000.;
 
+    // int input_array_test[10] = {1, 2, 2, 1, 1, 1, 3, 5, 3, 3};
+    // int output_array_test[10] = {0};
+    // int repeat_len = 0;
+    // cudaFindRepeats(input_array_test, 10, output_array_test, &repeat_len);
+    // exit(1);
+
     if (test.compare("scan") == 0) { // test exclusive scan
         // run CUDA implementation
         for (int i = 0; i < 1; i++) {
