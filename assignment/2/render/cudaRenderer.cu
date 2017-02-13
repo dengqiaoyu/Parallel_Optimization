@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <vector>
+#include <set>
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -14,9 +15,25 @@
 #include "sceneLoader.h"
 #include "util.h"
 
+#define SIDE_LENGTH 64
 ////////////////////////////////////////////////////////////////////////////////////////
 // Putting all the cuda kernels here
 ///////////////////////////////////////////////////////////////////////////////////////
+
+struct CircleIndex {
+    int index;
+    float depth;
+};
+
+struct CircleIndexCmp
+{
+    bool operator() (CircleIndex& p1, CircleIndex& p2)
+    {
+        return p1.depth < p2.depth;
+    }
+};
+
+set<CircleIndex, CircleIndexCmp> CircleIndexSet;
 
 struct GlobalConstants {
 
@@ -27,6 +44,7 @@ struct GlobalConstants {
     float* velocity;
     float* color;
     float* radius;
+    set<CircleIndex, CircleIndexCmp>* box;
 
     int imageWidth;
     int imageHeight;
@@ -523,6 +541,11 @@ CudaRenderer::setup() {
     cudaMalloc(&cudaDeviceColor, sizeof(float) * 3 * numCircles);
     cudaMalloc(&cudaDeviceRadius, sizeof(float) * numCircles);
     cudaMalloc(&cudaDeviceImageData, sizeof(float) * 4 * image->width * image->height);
+    int boxRowNum = (image->height + SIDE_LENGTH - 1) / SIDE_LENGTH;
+    int boxColNum = (image->weight + SIDE_LENGTH - 1) / SIDE_LENGTH;
+    set<CircleIndex, CircleIndexCmp>* cudaDeviceBoxArray;
+    cudaMalloc(&cudaDeviceBoxArray,
+              sizeof(set<CircleIndex, CircleIndexCmp>) * boxRowNum * boxColNum);
 
     cudaMemcpy(cudaDevicePosition, position, sizeof(float) * 3 * numCircles, cudaMemcpyHostToDevice);
     cudaMemcpy(cudaDeviceVelocity, velocity, sizeof(float) * 3 * numCircles, cudaMemcpyHostToDevice);
@@ -547,6 +570,7 @@ CudaRenderer::setup() {
     params.color = cudaDeviceColor;
     params.radius = cudaDeviceRadius;
     params.imageData = cudaDeviceImageData;
+    params.box = cudaDeviceBoxArray;
 
     cudaMemcpyToSymbol(cuConstRendererParams, &params, sizeof(GlobalConstants));
 
