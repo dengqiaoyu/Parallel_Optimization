@@ -16,9 +16,9 @@
 
 
 #define ROUNDED_DIV(x, y) ((x + y - 1) / y)
-#define SIDE_LENGTH 48
-#define ROW_THREADS_PER_BLOCK_FIND_CIRCLE 4
-#define COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE 4
+#define SIDE_LENGTH 8
+#define ROW_THREADS_PER_BLOCK_FIND_CIRCLE 8
+#define COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE 8
 #define THREADS_PER_BLOCK_FIND_CIRCLE (ROW_THREADS_PER_BLOCK_FIND_CIRCLE * \
                                        COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE)
 #define ROW_THREADS_PER_BLOCK_REDENER 16
@@ -782,8 +782,6 @@ __global__ void kernelFindIntersects() {
     // int rightDownPixelX = leftUpPixelX + SIDE_LENGTH;
     int width = cuConstRendererParams.imageWidth;
     int height = cuConstRendererParams.imageHeight;
-    float invWidth = 1.f / width;
-    float invHeight = 1.f / height;
     float box_left = ((float)x) * SIDE_LENGTH / width;
     float box_right = ((float)x + 1) * SIDE_LENGTH / width;
     float box_top = ((float)y) * SIDE_LENGTH / height;
@@ -957,7 +955,7 @@ CudaRenderer::render() {
     dim3 numBlocksRender(ROUNDED_DIV(image->width, threadsPerBlockRender.x),
                          ROUNDED_DIV(image->height, threadsPerBlockRender.y),
                          1);
-    kernelRenderPixel <<< threadsPerBlockRender, numBlocksRender>>>();
+    kernelRenderPixel <<< numBlocksRender, threadsPerBlockRender>>>();
 
     cudaCheckError(cudaDeviceSynchronize());
 }
