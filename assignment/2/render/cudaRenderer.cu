@@ -16,13 +16,13 @@
 
 
 #define ROUNDED_DIV(x, y) ((x + y - 1) / y)
-#define SIDE_LENGTH 32
-#define ROW_THREADS_PER_BLOCK_FIND_CIRCLE 16
-#define COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE 16
+#define SIDE_LENGTH 48
+#define ROW_THREADS_PER_BLOCK_FIND_CIRCLE 4
+#define COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE 4
 #define THREADS_PER_BLOCK_FIND_CIRCLE (ROW_THREADS_PER_BLOCK_FIND_CIRCLE * \
                                        COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE)
-#define ROW_THREADS_PER_BLOCK_REDENER 32
-#define COLUMN_THREADS_PER_BLOCK_REDENER 32
+#define ROW_THREADS_PER_BLOCK_REDENER 16
+#define COLUMN_THREADS_PER_BLOCK_REDENER 16
 
 #ifdef DEBUG
 #define cudaCheckError(ans) { cudaAssert((ans), __FILE__, __LINE__); }
@@ -706,22 +706,33 @@ CudaRenderer::advanceAnimation() {
     cudaDeviceSynchronize();
 }
 
-__device__ __inline__ void
+__device__ __inline__ int
 deviceCheckIntersect(float px, float py, float maxDist,
-                     float pixelX, float pixelY,
-                     float invWidth, float invHeight,
-                     int *isIntersect) {
-    float pixelCenterNormX = invWidth *
-                             (static_cast<float>(pixelX) + 0.5f);
-    float pixelCenterNormY = invHeight *
-                             (static_cast<float>(pixelY) + 0.5f);
-    float diffX = px - pixelCenterNormX;
-    float diffY = py - pixelCenterNormY;
-    float pixelDist = diffX * diffX + diffY * diffY;
-    if (pixelDist <= maxDist) {
-        // printf("pixelDist: %f, maxDist: %f\n", pixelDist, maxDist);
-        *isIntersect = 1;
-    }
+                     float box_left, float box_right,
+                     float box_top, float box_bottom) {
+    // float pixelCenterNormX = invWidth *
+    //                          (static_cast<float>(pixelX) + 0.5f);
+    // float pixelCenterNormY = invHeight *
+    //                          (static_cast<float>(pixelY) + 0.5f);
+    // float diffX = px - pixelCenterNormX;
+    // float diffY = py - pixelCenterNormY;
+    // float pixelDist = diffX * diffX + diffY * diffY;
+    // if (pixelDist <= maxDist) {
+    //     // printf("pixelDist: %f, maxDist: %f\n", pixelDist, maxDist);
+    //     *isIntersect = 1;
+    // }
+    float cloest_x = px < box_left ? box_left : (px < box_right ? px : box_right);
+    float cloest_y = py < box_top ? box_top : (py < box_bottom ? py : box_bottom);
+
+    float diffX = px - cloest_x;
+    float diffY = py - cloest_y;
+
+    float cloestDist = diffX * diffX + diffY * diffY;
+
+    if (cloestDist <= maxDist)
+        return 1;
+    else
+        return 0;
 }
 
 // __device__ __inline__ void
@@ -769,10 +780,14 @@ __global__ void kernelFindIntersects() {
     // int leftDownPixelX = leftUpPixelX;
     // int rightDownPixelY = leftUpPixelY + SIDE_LENGTH;
     // int rightDownPixelX = leftUpPixelX + SIDE_LENGTH;
-    int box_left = x * SIDE_LENGTH;
-    int box_right = (x + 1) * SIDE_LENGTH;
-    int box_top = y * SIDE_LENGTH;
-    int bpx_bottom = (y + 1) * SIDE_LENGTH;
+    int width = cuConstRendererParams.imageWidth;
+    int height = cuConstRendererParams.imageHeight;
+    float invWidth = 1.f / width;
+    float invHeight = 1.f / height;
+    float box_left = ((float)x) * SIDE_LENGTH / width;
+    float box_right = ((float)x + 1) * SIDE_LENGTH / width;
+    float box_top = ((float)y) * SIDE_LENGTH / height;
+    float box_bottom = ((float)y + 1) * SIDE_LENGTH / height;
 
     for (int circleIndex = 0;
             circleIndex < numCircles;
@@ -780,20 +795,17 @@ __global__ void kernelFindIntersects() {
         int index3 = 3 * circleIndex;
         float px = cuConstRendererParams.position[index3];
         float py = cuConstRendererParams.position[index3 + 1];
-        // float pz = cuConstRendererParams.position[index3 + 2];
         float rad = cuConstRendererParams.radius[circleIndex];
-
-        int width = cuConstRendererParams.imageWidth;
-        int height = cuConstRendererParams.imageHeight;
-        float invWidth = 1.f / width;
-        float invHeight = 1.f / height;
-
-        int is_intersected = 0;
         float maxDist = rad * rad;
 
-        deviceCheckIntersect(px, py, maxDist,
-                             box_left, box_right, box_top, box_bottom,
-                             invWidth, invHeight, &is_intersected);
+        int is_intersected = 0;
+        is_intersected = deviceCheckIntersect(px, py, maxDist,
+                                              box_left, box_right,
+                                              box_top, box_bottom);
+        if (is_intersected != 0) {
+            indexCircleInBox[numCircleInBox] = circleIndex;
+            numCircleInBox++;
+        }
 
         // screenPixelY = leftUpPixelY;
         // for (screenPixelX = leftUpPixelX;
