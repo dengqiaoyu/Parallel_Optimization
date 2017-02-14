@@ -21,6 +21,8 @@
 #define COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE 16
 #define THREADS_PER_BLOCK_FIND_CIRCLE (ROW_THREADS_PER_BLOCK_FIND_CIRCLE * \
                                        COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE)
+#define ROW_THREADS_PER_BLOCK_REDENER 32
+#define COLUMN_THREADS_PER_BLOCK_REDENER 32
 
 #ifdef DEBUG
 #define cudaCheckError(ans) { cudaAssert((ans), __FILE__, __LINE__); }
@@ -60,8 +62,8 @@ inline void cudaAssert(cudaError_t code, const char *file, int line,
 // set<CircleIndex> CircleIndexVec;
 int boxRowNum;
 int boxColNum;
-int* debug_numCircleInBlock;
-int* debug_indexCircleInBlock;
+int* debug_numCircleInBox;
+int* debug_indexCircleInBox;
 int debug_numCircles;
 
 struct GlobalConstants {
@@ -80,8 +82,8 @@ struct GlobalConstants {
     int imageHeight;
     float* imageData;
 
-    int* numCircleInBlock;
-    int* indexCircleInBlock;
+    int* numCircleInBox;
+    int* indexCircleInBox;
 };
 
 // Global variable that is in scope, but read-only, for all cuda
@@ -368,7 +370,8 @@ __global__ void kernelAdvanceSnowflake() {
 // pixel from the circle.  Update of the image is done in this
 // function.  Called by kernelRenderCircles()
 __device__ __inline__ void
-shadePixel(int circleIndex, float2 pixelCenter, float3 p, float4* imagePtr) {
+shadePixel(int circleIndex, float2 pixelCenter, float3 p, float4* imagePtr,
+           int pixelX, int pixelY) {
 
     float diffX = p.x - pixelCenter.x;
     float diffY = p.y - pixelCenter.y;
@@ -378,8 +381,11 @@ shadePixel(int circleIndex, float2 pixelCenter, float3 p, float4* imagePtr) {
     float maxDist = rad * rad;
 
     // circle does not contribute to the image
-    if (pixelDist > maxDist)
+    if (pixelDist > maxDist) {
         return;
+    }
+
+
 
     float3 rgb;
     float alpha;
@@ -469,7 +475,7 @@ __global__ void kernelRenderCircles() {
         for (int pixelX = screenMinX; pixelX < screenMaxX; pixelX++) {
             float2 pixelCenterNorm = make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
                                                  invHeight * (static_cast<float>(pixelY) + 0.5f));
-            shadePixel(index, pixelCenterNorm, p, imgPtr);
+            shadePixel(index, pixelCenterNorm, p, imgPtr, 0, 0);
             imgPtr++;
         }
     }
@@ -575,15 +581,15 @@ CudaRenderer::setup() {
     cudaMalloc(&cudaDeviceImageData, sizeof(float) * 4 * image->width * image->height);
     boxRowNum = ROUNDED_DIV(image->height, SIDE_LENGTH);
     boxColNum = ROUNDED_DIV(image->width, SIDE_LENGTH);
-    int* indexCircleInBlock;
-    cudaMalloc(&indexCircleInBlock,
+    int* indexCircleInBox;
+    cudaMalloc(&indexCircleInBox,
                sizeof(int) * boxRowNum * boxColNum * numCircles);
-    cudaMemset(indexCircleInBlock, 0,
+    cudaMemset(indexCircleInBox, 0,
                sizeof(int) * boxRowNum * boxColNum * numCircles);
-    int* numCircleInBlock;
-    cudaMalloc(&numCircleInBlock,
+    int* numCircleInBox;
+    cudaMalloc(&numCircleInBox,
                sizeof(int) * boxRowNum * boxColNum);
-    cudaMemset(numCircleInBlock, 0,
+    cudaMemset(numCircleInBox, 0,
                sizeof(int) * boxRowNum * boxColNum);
 
     cudaMemcpy(cudaDevicePosition, position, sizeof(float) * 3 * numCircles, cudaMemcpyHostToDevice);
@@ -610,10 +616,12 @@ CudaRenderer::setup() {
     params.color = cudaDeviceColor;
     params.radius = cudaDeviceRadius;
     params.imageData = cudaDeviceImageData;
-    params.indexCircleInBlock = indexCircleInBlock;
-    debug_indexCircleInBlock = indexCircleInBlock;
-    params.numCircleInBlock = numCircleInBlock;
-    debug_numCircleInBlock = numCircleInBlock;
+    params.boxRowNum = boxRowNum;
+    params.boxColNum = boxColNum;
+    params.indexCircleInBox = indexCircleInBox;
+    debug_indexCircleInBox = indexCircleInBox;
+    params.numCircleInBox = numCircleInBox;
+    debug_numCircleInBox = numCircleInBox;
 
     cudaMemcpyToSymbol(cuConstRendererParams, &params, sizeof(GlobalConstants));
 
@@ -740,28 +748,31 @@ deviceCheckIntersect(float px, float py, float maxDist,
 
 __global__ void kernelFindIntersects() {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
-    int y = blockDim.y * blockIdx.x + threadIdx.y;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
 
-    // printf("x: %d, y: %d.      ", x, y);
+    // printf("x: %d, y: %d\n", x, y);
     // return;
     int numCircles = cuConstRendererParams.numCircles;
     // printf("numCircles: %d\n", numCircles);
     // return;
-    int boxIndex = y * blockDim.x + x;
-    int numCircleInBlock = 0;
-    int* indexCircleInBlock = (cuConstRendererParams.indexCircleInBlock) + boxIndex * numCircles;
-    int leftUpPixelY = y * SIDE_LENGTH;
-    int leftUpPixelX = x * SIDE_LENGTH;
-    // printf("boxIndex: %d, leftUpPixelX: %d, leftUpPixelY: %d, blockDim.x: %d\n",
-    //        boxIndex, leftUpPixelX, leftUpPixelY, blockDim.x);
-    // return;
-    int rightUpPixelY = leftUpPixelY;
-    int rightUpPixelX = leftUpPixelX + SIDE_LENGTH;
-    int leftDownPixelY = leftUpPixelY + SIDE_LENGTH;
-    int leftDownPixelX = leftUpPixelX;
-    int rightDownPixelY = leftUpPixelY + SIDE_LENGTH;
-    int rightDownPixelX = leftUpPixelX + SIDE_LENGTH;
-
+    int boxIndex = y * cuConstRendererParams.boxRowNum + x;
+    int numCircleInBox = 0;
+    int* indexCircleInBox = (cuConstRendererParams.indexCircleInBox) + boxIndex * numCircles;
+    // int leftUpPixelY = y * SIDE_LENGTH;
+    // int leftUpPixelX = x * SIDE_LENGTH;
+    // // printf("boxIndex: %d, leftUpPixelX: %d, leftUpPixelY: %d, blockDim.x: %d\n",
+    // //        boxIndex, leftUpPixelX, leftUpPixelY, blockDim.x);
+    // // return;
+    // int rightUpPixelY = leftUpPixelY;
+    // int rightUpPixelX = leftUpPixelX + SIDE_LENGTH;
+    // int leftDownPixelY = leftUpPixelY + SIDE_LENGTH;
+    // int leftDownPixelX = leftUpPixelX;
+    // int rightDownPixelY = leftUpPixelY + SIDE_LENGTH;
+    // int rightDownPixelX = leftUpPixelX + SIDE_LENGTH;
+    int box_left = x * SIDE_LENGTH;
+    int box_right = (x + 1) * SIDE_LENGTH;
+    int box_top = y * SIDE_LENGTH;
+    int bpx_bottom = (y + 1) * SIDE_LENGTH;
 
     for (int circleIndex = 0;
             circleIndex < numCircles;
@@ -780,102 +791,135 @@ __global__ void kernelFindIntersects() {
         int is_intersected = 0;
         float maxDist = rad * rad;
 
-        int screenPixelX = 0;
-        int screenPixelY = 0;
+        deviceCheckIntersect(px, py, maxDist,
+                             box_left, box_right, box_top, box_bottom,
+                             invWidth, invHeight, &is_intersected);
 
-        screenPixelY = leftUpPixelY;
-        for (screenPixelX = leftUpPixelX;
-                screenPixelX <= rightUpPixelX;
-                screenPixelX++) {
-            deviceCheckIntersect(px, py, maxDist,
-                                 screenPixelX, screenPixelY,
-                                 invWidth, invHeight, &is_intersected);
-            if (is_intersected == 1) {
-                indexCircleInBlock[numCircleInBlock] = circleIndex;
-                numCircleInBlock++;
-                break;
-            }
-        }
-        if (is_intersected == 1) {
-            continue;
-        }
+        // screenPixelY = leftUpPixelY;
+        // for (screenPixelX = leftUpPixelX;
+        //         screenPixelX <= rightUpPixelX;
+        //         screenPixelX++) {
+        //     deviceCheckIntersect(px, py, maxDist,
+        //                          screenPixelX, screenPixelY,
+        //                          invWidth, invHeight, &is_intersected);
+        //     if (is_intersected == 1) {
+        //         indexCircleInBox[numCircleInBox] = circleIndex;
+        //         numCircleInBox++;
+        //         break;
+        //     }
+        // }
+        // if (is_intersected == 1) {
+        //     continue;
+        // }
 
-        screenPixelY = leftDownPixelY;
-        for (screenPixelX = leftDownPixelX;
-                screenPixelX <= rightDownPixelX;
-                screenPixelX++) {
-            deviceCheckIntersect(px, py, maxDist,
-                                 screenPixelX, screenPixelY,
-                                 invWidth, invHeight, &is_intersected);
-            if (is_intersected == 1) {
-                indexCircleInBlock[numCircleInBlock] = circleIndex;
-                numCircleInBlock++;
-                break;
-            }
-        }
-        if (is_intersected == 1) {
-            continue;
-        }
+        // screenPixelY = leftDownPixelY;
+        // for (screenPixelX = leftDownPixelX;
+        //         screenPixelX <= rightDownPixelX;
+        //         screenPixelX++) {
+        //     deviceCheckIntersect(px, py, maxDist,
+        //                          screenPixelX, screenPixelY,
+        //                          invWidth, invHeight, &is_intersected);
+        //     if (is_intersected == 1) {
+        //         indexCircleInBox[numCircleInBox] = circleIndex;
+        //         numCircleInBox++;
+        //         break;
+        //     }
+        // }
+        // if (is_intersected == 1) {
+        //     continue;
+        // }
 
-        screenPixelX = leftUpPixelX;
-        for (screenPixelY = leftUpPixelY;
-                screenPixelY <= leftDownPixelY;
-                screenPixelY++) {
-            deviceCheckIntersect(px, py, maxDist,
-                                 screenPixelX, screenPixelY,
-                                 invWidth, invHeight, &is_intersected);
-            if (is_intersected == 1) {
-                indexCircleInBlock[numCircleInBlock] = circleIndex;
-                numCircleInBlock++;
-                break;
-            }
-        }
-        if (is_intersected == 1) {
-            continue;
-        }
+        // screenPixelX = leftUpPixelX;
+        // for (screenPixelY = leftUpPixelY;
+        //         screenPixelY <= leftDownPixelY;
+        //         screenPixelY++) {
+        //     deviceCheckIntersect(px, py, maxDist,
+        //                          screenPixelX, screenPixelY,
+        //                          invWidth, invHeight, &is_intersected);
+        //     if (is_intersected == 1) {
+        //         indexCircleInBox[numCircleInBox] = circleIndex;
+        //         numCircleInBox++;
+        //         break;
+        //     }
+        // }
+        // if (is_intersected == 1) {
+        //     continue;
+        // }
 
-        screenPixelX = rightUpPixelX;
-        for (screenPixelY = rightUpPixelY;
-                screenPixelY <= rightDownPixelY;
-                screenPixelY++) {
-            deviceCheckIntersect(px, py, maxDist,
-                                 screenPixelX, screenPixelY,
-                                 invWidth, invHeight, &is_intersected);
-            if (is_intersected == 1) {
-                indexCircleInBlock[numCircleInBlock] = circleIndex;
-                numCircleInBlock++;
-                break;
-            }
-        }
-        if (is_intersected == 1) {
-            continue;
-        }
+        // screenPixelX = rightUpPixelX;
+        // for (screenPixelY = rightUpPixelY;
+        //         screenPixelY <= rightDownPixelY;
+        //         screenPixelY++) {
+        //     deviceCheckIntersect(px, py, maxDist,
+        //                          screenPixelX, screenPixelY,
+        //                          invWidth, invHeight, &is_intersected);
+        //     if (is_intersected == 1) {
+        //         indexCircleInBox[numCircleInBox] = circleIndex;
+        //         numCircleInBox++;
+        //         break;
+        //     }
+        // }
+        // if (is_intersected == 1) {
+        //     continue;
+        // }
     }
 
-    // printf("numCircleInBlock: %d\n", numCircleInBlock.);
-    cuConstRendererParams.numCircleInBlock[boxIndex] = numCircleInBlock;
+    // printf("numCircleInBox: %d\n", numCircleInBox.);
+    cuConstRendererParams.numCircleInBox[boxIndex] = numCircleInBox;
+}
+
+__global__ void
+kernelRenderPixel() {
+    int imageWidth = cuConstRendererParams.imageWidth;
+    int imageHeight = cuConstRendererParams.imageHeight;
+    float invWidth = 1.f / imageWidth;
+    float invHeight = 1.f / imageHeight;
+    int numCircleTotal = cuConstRendererParams.numCircles;
+
+    int pixelX = blockDim.x * blockIdx.x + threadIdx.x;
+    int pixelY = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (pixelX > cuConstRendererParams.imageWidth ||
+            pixelY > cuConstRendererParams.imageHeight) {
+        return;
+    }
+
+    int boxX = pixelX / SIDE_LENGTH;
+    int boxY = pixelY / SIDE_LENGTH;
+    int boxIdx = boxY * cuConstRendererParams.boxRowNum + boxX;
+
+    int* indexCircleInBox =
+        (cuConstRendererParams.indexCircleInBox) + boxIdx * numCircleTotal;
+    int numCircleInBox = cuConstRendererParams.numCircleInBox[boxIdx] ;
+
+    for (int i = 0; i < numCircleInBox; i++) {
+        int circleIndex = indexCircleInBox[i];
+        int index3 = 3 * circleIndex;
+        float3 p = *(float3*)(&cuConstRendererParams.position[index3]);
+
+        float4* imgPtr = (float4*)(&cuConstRendererParams.imageData[4 * (pixelY * imageWidth + pixelX)]);
+        float2 pixelCenterNorm = make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
+                                             invHeight * (static_cast<float>(pixelY) + 0.5f));
+        shadePixel(circleIndex, pixelCenterNorm, p, imgPtr, pixelX, pixelY);
+    }
 }
 
 void
 print_circle_index_in_box(int start, int end) {
-    // int *numCircles = debug_numCircleInBlock;
-    // int numCircles = 0;
-    // cudaCheckError(cudaMemcpyFromSymbol(&numCircles, &(cuConstRendererParams.numCircles), sizeof(int)));
     int* hostNumCircles = new int[sizeof(int) * boxRowNum * boxColNum];
     int* hostIndexCircles = new int[sizeof(int) * boxRowNum * boxColNum * debug_numCircles];
-    cudaMemcpy(hostNumCircles, debug_numCircleInBlock,
+    cudaMemcpy(hostNumCircles, debug_numCircleInBox,
                sizeof(int) * boxRowNum * boxColNum, cudaMemcpyDeviceToHost);
-    cudaMemcpy(hostIndexCircles, debug_indexCircleInBlock,
+    cudaMemcpy(hostIndexCircles, debug_indexCircleInBox,
                sizeof(int) * boxRowNum * boxColNum * debug_numCircles, cudaMemcpyDeviceToHost);
     for (int y = 0; y < boxRowNum; y++) {
         for (int x = 0; x < boxColNum; x++) {
             int boxIndex = y * boxRowNum + x;
             if (hostNumCircles[boxIndex] > 0) {
-                printf("%d\n", hostNumCircles[boxIndex]);
+                printf("boxY: %d, boxX: %d, %d\n", y, x, hostNumCircles[boxIndex]);
                 int *indexArray = hostIndexCircles + boxIndex * debug_numCircles;
                 for (int i = 0; i < hostNumCircles[boxIndex]; i++) {
                     printf("%d, ", indexArray[i]);
-                    // indexArray[i]
                 }
                 printf("\n");
             }
@@ -887,24 +931,21 @@ print_circle_index_in_box(int start, int end) {
 
 void
 CudaRenderer::render() {
+    dim3 threadsPerBlockFind(COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE,
+                             ROW_THREADS_PER_BLOCK_FIND_CIRCLE, 1);
+    dim3 numBlocksFind(ROUNDED_DIV(boxColNum,
+                                   COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE),
+                       ROUNDED_DIV(boxRowNum,
+                                   ROW_THREADS_PER_BLOCK_FIND_CIRCLE), 1);
+    kernelFindIntersects <<< numBlocksFind, threadsPerBlockFind>>>();
+    cudaCheckError(cudaDeviceSynchronize());
+    // print_circle_index_in_box(0, boxRowNum * boxRowNum - 1);
+    dim3 threadsPerBlockRender(COLUMN_THREADS_PER_BLOCK_REDENER,
+                               ROW_THREADS_PER_BLOCK_REDENER, 1);
+    dim3 numBlocksRender(ROUNDED_DIV(image->width, threadsPerBlockRender.x),
+                         ROUNDED_DIV(image->height, threadsPerBlockRender.y),
+                         1);
+    kernelRenderPixel <<< threadsPerBlockRender, numBlocksRender>>>();
 
-    // 256 threads per block is a healthy number
-
-    // dim3 blockDim(256, 1);
-    // dim3 gridDim((numCircles + blockDim.x - 1) / blockDim.x);
-
-    // kernelRenderCircles<<<gridDim, blockDim>>>();
-    // int numThreads = params.boxRowNum * params.boxColNum;
-    dim3 threadsPerBlock(COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE,
-                         ROW_THREADS_PER_BLOCK_FIND_CIRCLE, 1);
-    dim3 numBlocks(ROUNDED_DIV(boxColNum,
-                               COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE),
-                   ROUNDED_DIV(boxRowNum,
-                               ROW_THREADS_PER_BLOCK_FIND_CIRCLE));
-    kernelFindIntersects <<< numBlocks, threadsPerBlock>>>();
-    cudaDeviceSynchronize();
-    // exit(1);
-    print_circle_index_in_box(0, boxRowNum * boxRowNum - 1);
-    printf("complete pre-processing\n");
-    exit(1);
+    cudaCheckError(cudaDeviceSynchronize());
 }
