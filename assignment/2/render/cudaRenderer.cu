@@ -16,7 +16,6 @@
 #include "sceneLoader.h"
 #include "util.h"
 
-
 #ifdef DEBUG
 #define cudaCheckError(ans) { cudaAssert((ans), __FILE__, __LINE__); }
 inline void cudaAssert(cudaError_t code, const char *file, int line,
@@ -41,6 +40,10 @@ inline void cudaAssert(cudaError_t code, const char *file, int line,
 #define BOX_NUM(width, height) (ROUND_DIV(width, BOX_SIDE_LENGTH) \
         * ROUND_DIV(height, BOX_SIDE_LENGTH))
 #define THREADS_NUM_COMPRESS 1024
+#define ROW_THREADS_PER_BLOCK_RENDER 32
+#define COLUMN_THREADS_PER_BLOCK_RENDER 32
+#define NUM_THREADS_RENDER (ROW_THREADS_PER_BLOCK_RENDER\
+        * COLUMN_THREADS_PER_BLOCK_RENDER)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Putting all the cuda kernels here
@@ -77,8 +80,6 @@ __constant__ float  cuConstNoise1DValueTable[256];
 // color ramp table needed for the color ramp lookup shader
 #define COLOR_MAP_SIZE 5
 __constant__ float  cuConstColorRamp[COLOR_MAP_SIZE][3];
-
-
 // including parts of the CUDA code from external files to keep this
 // file simpler and to seperate code that should not be modified
 #include "noiseCuda.cu_inl"
@@ -600,7 +601,6 @@ CudaRenderer::setup() {
     };
 
     cudaMemcpyToSymbol(cuConstColorRamp, lookupTable, sizeof(float) * 3 * COLOR_MAP_SIZE);
-
 }
 
 // allocOutputImage --
@@ -698,6 +698,45 @@ kernelCompressidx(int* idxCinB, int* idxCinBScan, int* idxCinBCompress,
     }
 }
 
+__global__ void
+kernelRenderPixel(int* idxCinBCompress) {
+    // int width = cuConstRendererParams.imageWidth;
+    // int height = cuConstRendererParams.imageHeight;
+    int width = 8;
+    int height = 8;
+    // int numCircles = cuConstRendererParams.numCircles;
+    int numCircles = 10;
+    int pixelX = blockDim.x * blockIdx.x + threadIdx.x;
+    int pixelY = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (pixelX >= width || pixelY >= height)
+        return;
+
+    int boxX = pixelX / BOX_SIDE_LENGTH;
+    int boxY = pixelY / BOX_SIDE_LENGTH;
+
+    int boxIdx = boxY * (ROUND_DIV(width, BOX_SIDE_LENGTH)) + boxX;
+    int* cList = idxCinBCompress + boxIdx * numCircles;
+
+
+    for (int i = 0; i < numCircles; i++) {
+        int index = cList[i];
+        if (index == -1)
+            break;
+        printf("pixelY: %d, pixelX: %d, index: %d\n", pixelY, pixelX, index);
+        // int index3 = 3 * index;
+
+        // float3 p = *(float3*)(&cuConstRendererParams.position[index3]);
+        // float  rad = cuConstRendererParams.radius[index];
+        // float invWidth = 1.f / width;
+        // float invHeight = 1.f / height;
+        // float4* imgPtr = (float4*)(&cuConstRendererParams.imageData[4 * (pixelY * imageWidth + pixelX)]);
+        // float2 pixelCenterNorm = make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
+        //                                      invHeight * (static_cast<float>(pixelY) + 0.5f));
+        // shadePixel(index, pixelCenterNorm, p, imgPtr);
+    }
+}
+
 void
 CudaRenderer::render() {
     // image = NULL;
@@ -767,24 +806,17 @@ CudaRenderer::render() {
 
     cudaCheckError(cudaDeviceSynchronize());
     print_int_device_memory(idxCinBCompress, idxCinBLen);
+    // exit(1);
+
+    cudaCheckError(cudaFree(idxCinBScan));
+    cudaCheckError(cudaFree(idxCinB));
+
+    dim3 blockDim(ROW_THREADS_PER_BLOCK_RENDER,
+                  COLUMN_THREADS_PER_BLOCK_RENDER);
+    dim3 gridDim(ROUND_DIV(width, blockDim.x), ROUND_DIV(height, blockDim.y));
+    printf("begin:\n");
+    kernelRenderPixel <<< gridDim, blockDim>>>(idxCinBCompress);
+    cudaCheckError(cudaDeviceSynchronize());
+    cudaCheckError(cudaFree(idxCinBCompress));
     exit(1);
-}
-
-// static inline int thrust_exclusive_scan(int* start, int* end, int *result) {
-//     int len = end - start;
-//     int* idxCinBScanHost = new int[len];
-
-//     cudaCheckError(cudaMemcpy(idxCinBScanHost, start, len * sizeof(int)));
-//     thrust::exclusive_scan(idxCinB, idxCinB + idxCinBLen, idxCinBScan);
-// }
-
-static inline int nextPow2(int n) {
-    n--;
-    n |= n >> 1;
-    n |= n >> 2;
-    n |= n >> 4;
-    n |= n >> 8;
-    n |= n >> 16;
-    n++;
-    return n;
 }
