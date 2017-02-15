@@ -39,8 +39,8 @@ inline void cudaAssert(cudaError_t code, const char *file, int line,
 #define BOX_NUM(width, height) (ROUND_DIV(width, BOX_SIDE_LENGTH) \
         * ROUND_DIV(height, BOX_SIDE_LENGTH))
 #define THREADS_NUM_COMPRESS 1024
-#define ROW_THREADS_PER_BLOCK_RENDER 16
-#define COLUMN_THREADS_PER_BLOCK_RENDER 16
+#define ROW_THREADS_PER_BLOCK_RENDER 32
+#define COLUMN_THREADS_PER_BLOCK_RENDER 32
 #define NUM_THREADS_RENDER (ROW_THREADS_PER_BLOCK_RENDER\
         * COLUMN_THREADS_PER_BLOCK_RENDER)
 

@@ -11,7 +11,7 @@
 void startRendererWithDisplay(CircleRenderer* renderer);
 void startBenchmark(CircleRenderer* renderer, int startFrame, int totalFrames, const std::string& frameFilename);
 void CheckBenchmark(CircleRenderer* ref_renderer, CircleRenderer* cuda_renderer,
-                        int benchmarkFrameStart, int totalFrames, const std::string& frameFilename);
+                    int benchmarkFrameStart, int totalFrames, const std::string& frameFilename);
 
 
 void usage(const char* progname) {
@@ -27,8 +27,7 @@ void usage(const char* progname) {
 }
 
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
 
     int benchmarkFrameStart = -1;
     int benchmarkFrameEnd = -1;
@@ -50,7 +49,7 @@ int main(int argc, char** argv)
         {"file",     1, 0,  'f'},
         {"renderer", 1, 0,  'r'},
         {"size",     1, 0,  's'},
-        {0 ,0, 0, 0}
+        {0 , 0, 0, 0}
     };
 
     while ((opt = getopt_long(argc, argv, "b:f:r:s:c?", long_options, NULL)) != EOF) {
@@ -113,12 +112,12 @@ int main(int argc, char** argv)
     } else if (sceneNameStr.compare("littlebig") == 0) {
         sceneName = LITTLE_BIG;
     } else if (sceneNameStr.compare("bouncingballs") == 0) {
-        sceneName = BOUNCING_BALLS;  
-    } else if (sceneNameStr.compare("hypnosis") == 0) { 
-        sceneName = HYPNOSIS;           
-    } else if (sceneNameStr.compare("fireworks") == 0) { 
-        sceneName = FIREWORKS;    
-    }else {
+        sceneName = BOUNCING_BALLS;
+    } else if (sceneNameStr.compare("hypnosis") == 0) {
+        sceneName = HYPNOSIS;
+    } else if (sceneNameStr.compare("fireworks") == 0) {
+        sceneName = FIREWORKS;
+    } else {
         fprintf(stderr, "Unknown scene name (%s)\n", sceneNameStr.c_str());
         usage(argv[0]);
         return 1;
@@ -146,9 +145,7 @@ int main(int argc, char** argv)
 
         // Check the correctness
         CheckBenchmark(ref_renderer, cuda_renderer, 0, 1, frameFilename);
-    }
-    else {
-
+    } else {
         if (useRefRenderer)
             renderer = new RefRenderer();
         else
