@@ -15,6 +15,7 @@
 #include "noise.h"
 #include "sceneLoader.h"
 #include "util.h"
+#include "cycleTimer.h"
 
 #ifdef DEBUG
 #define cudaCheckError(ans) { cudaAssert((ans), __FILE__, __LINE__); }
@@ -31,17 +32,15 @@ inline void cudaAssert(cudaError_t code, const char *file, int line,
 #endif
 #define ROUND_DIV(x, y) ((x + y - 1) / y)
 
-#ifdef DEBUG
+#define THREADS_NUM_CIRCLE 1024
+
 #define BOX_SIDE_LENGTH 32
-#else
-#define BOX_SIDE_LENGTH 4
-#endif
 
 #define BOX_NUM(width, height) (ROUND_DIV(width, BOX_SIDE_LENGTH) \
         * ROUND_DIV(height, BOX_SIDE_LENGTH))
 #define THREADS_NUM_COMPRESS 1024
-#define ROW_THREADS_PER_BLOCK_RENDER 32
-#define COLUMN_THREADS_PER_BLOCK_RENDER 32
+#define ROW_THREADS_PER_BLOCK_RENDER 16
+#define COLUMN_THREADS_PER_BLOCK_RENDER 16
 #define NUM_THREADS_RENDER (ROW_THREADS_PER_BLOCK_RENDER\
         * COLUMN_THREADS_PER_BLOCK_RENDER)
 
@@ -85,7 +84,8 @@ __constant__ float  cuConstColorRamp[COLOR_MAP_SIZE][3];
 #include "noiseCuda.cu_inl"
 #include "lookupColor.cu_inl"
 
-static inline int nextPow2(int n);
+static int width_g;
+static int height_g;
 
 // kernelClearImageSnowflake -- (CUDA device code)
 //
@@ -576,6 +576,8 @@ CudaRenderer::setup() {
     params.color = cudaDeviceColor;
     params.radius = cudaDeviceRadius;
     params.imageData = cudaDeviceImageData;
+    width_g = params.imageWidth;
+    height_g = params.imageHeight;
 
     cudaMemcpyToSymbol(cuConstRendererParams, &params, sizeof(GlobalConstants));
 
@@ -664,27 +666,78 @@ void print_int_device_memory(int* device_memory, int len) {
     cudaCheckError(cudaMemcpy(device_memmory_debug, device_memory, len * sizeof(int),
                               cudaMemcpyDeviceToHost));
     printf("printing array, length: %d\n", len);
+    // int start = 51 * 4 + 98;
+    // int end = start + 3;
     for (int i = 0; i < len; i++) {
+        // if (i >= start && i < end) {
+        //     printf("%d ", device_memmory_debug[i]);
+        // }
         printf("%d ", device_memmory_debug[i]);
     }
     printf("\n");
     delete[] device_memmory_debug;
 }
 
+__device__ inline int
+myCeil(float num) {
+    int inum = (int)num;
+    if (num == (float)inum) {
+        return inum;
+    }
+    return inum + 1;
+}
+
 __global__ void
-kernelCompressidx(int* idxCinB, int* idxCinBScan, int* idxCinBCompress,
+kernelCircle(int* idxCinB) {
+    int circleIdx = blockDim.x * blockIdx.x + threadIdx.x;
+    int numCircles = cuConstRendererParams.numCircles;
+
+    if (circleIdx >= cuConstRendererParams.numCircles)
+        return;
+    int index3 = 3 * circleIdx;
+    float px = cuConstRendererParams.position[index3];
+    float py = cuConstRendererParams.position[index3 + 1];
+    float rad = cuConstRendererParams.radius[circleIdx];
+
+    int width = cuConstRendererParams.imageWidth;
+    int height = cuConstRendererParams.imageHeight;
+    int minX = (int)((px - rad) * width - 0.5f);
+    int maxX = myCeil((px + rad) * width - 0.5f);
+    int minY = (int)((py - rad) * height - 0.5f);
+    int maxY = myCeil((py + rad) * height - 0.5f);
+
+    minX = minX > 0 ? minX : 0;
+    maxX = maxX < width ? maxX : (width - 1);
+    minY = minY > 0 ? minY : 0;
+    maxY = maxY < height ? maxY : (height - 1);
+
+    int minBoxX = minX / BOX_SIDE_LENGTH;
+    int maxBoxX = maxX / BOX_SIDE_LENGTH;
+    int minBoxY = minY / BOX_SIDE_LENGTH;
+    int maxBoxY = maxY / BOX_SIDE_LENGTH;
+
+    int rowNumBox = ROUND_DIV(width, BOX_SIDE_LENGTH);
+    for (int i = minBoxY; i <= maxBoxY; i++) {
+        for (int j = minBoxX; j <= maxBoxX; j++) {
+            unsigned int boxIdx = i * rowNumBox + j;
+            idxCinB[boxIdx * numCircles + circleIdx] = 1;
+        }
+    }
+}
+
+__global__ void
+kernelCompressIdx(int* idxCinB, int* idxCinBScan, int* idxCinBCompress,
                   unsigned int idxCinBLen) {
     unsigned int gid = blockDim.x * blockIdx.x + threadIdx.x;
 
     if (gid >= idxCinBLen)
         return;
-    int numCirclesDebug = 10;
-    // int numCircles = cuConstRendererParams.numCircles;
-    int gidOfFirstT = (gid / numCirclesDebug) * numCirclesDebug;
+    int numCircles = cuConstRendererParams.numCircles;
+    int gidOfFirstT = (gid / numCircles) * numCircles;
     int* BoxPtr = idxCinBCompress + gidOfFirstT;
     int idxOffset = idxCinBScan[gidOfFirstT];
 
-    if ((gid + 1) % numCirclesDebug == 0) {
+    if ((gid + 1) % numCircles == 0) {
         if (idxCinB[gid] == 1) {
             unsigned int idxInidxCinBCompress = idxCinBScan[gid];
             BoxPtr[idxInidxCinBCompress - idxOffset] = gid - gidOfFirstT;
@@ -700,12 +753,9 @@ kernelCompressidx(int* idxCinB, int* idxCinBScan, int* idxCinBCompress,
 
 __global__ void
 kernelRenderPixel(int* idxCinBCompress) {
-    // int width = cuConstRendererParams.imageWidth;
-    // int height = cuConstRendererParams.imageHeight;
-    int width = 8;
-    int height = 8;
-    // int numCircles = cuConstRendererParams.numCircles;
-    int numCircles = 10;
+    int width = cuConstRendererParams.imageWidth;
+    int height = cuConstRendererParams.imageHeight;
+    int numCircles = cuConstRendererParams.numCircles;
     int pixelX = blockDim.x * blockIdx.x + threadIdx.x;
     int pixelY = blockDim.y * blockIdx.y + threadIdx.y;
 
@@ -721,19 +771,21 @@ kernelRenderPixel(int* idxCinBCompress) {
 
     for (int i = 0; i < numCircles; i++) {
         int index = cList[i];
-        if (index == -1)
-            break;
-        printf("pixelY: %d, pixelX: %d, index: %d\n", pixelY, pixelX, index);
-        // int index3 = 3 * index;
+        if (index == -1) {
 
-        // float3 p = *(float3*)(&cuConstRendererParams.position[index3]);
-        // float  rad = cuConstRendererParams.radius[index];
-        // float invWidth = 1.f / width;
-        // float invHeight = 1.f / height;
-        // float4* imgPtr = (float4*)(&cuConstRendererParams.imageData[4 * (pixelY * imageWidth + pixelX)]);
-        // float2 pixelCenterNorm = make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
-        //                                      invHeight * (static_cast<float>(pixelY) + 0.5f));
-        // shadePixel(index, pixelCenterNorm, p, imgPtr);
+            break;
+        }
+        // printf("index: %d\n", i);
+        // printf("pixelY: %d, pixelX: %d, index: %d\n", pixelY, pixelX, index);
+        int index3 = 3 * index;
+
+        float3 p = *(float3*)(&cuConstRendererParams.position[index3]);
+        float invWidth = 1.f / width;
+        float invHeight = 1.f / height;
+        float4* imgPtr = (float4*)(&cuConstRendererParams.imageData[4 * (pixelY * width + pixelX)]);
+        float2 pixelCenterNorm = make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
+                                             invHeight * (static_cast<float>(pixelY) + 0.5f));
+        shadePixel(index, pixelCenterNorm, p, imgPtr);
     }
 }
 
@@ -759,64 +811,82 @@ CudaRenderer::render() {
     // kernelRenderCircles<<<gridDim, blockDim>>>();
 
     int *idxCinB;
-    // int width = image.width;
-    // int height = image.height;
-    // DEBUG
-    int width = 8;
-    int height = 8;
-    int numCirclesDebug = 10;
+    int width = width_g;
+    int height = height_g;
 
+    double startCircleTime = CycleTimer::currentSeconds();
     int boxNum = BOX_NUM(width, height);
-    unsigned int idxCinBLen = boxNum * numCirclesDebug;
-    // DEBUG
-    int* idxCinBHost = new int[idxCinBLen];
-    for (int i = 0; i < idxCinBLen; i++) {
-        idxCinBHost[i] = rand() % 2;
-    }
-    // idxCinBLen = nextPow2(idxCinBLen);
+    unsigned int idxCinBLen = boxNum * numCircles;
+    // printf("boxNum: %d, numCircles: %d, idxCinBLen: %d\n", boxNum, numCircles, idxCinBLen);
+    // exit(1);
     cudaCheckError(cudaMalloc(&idxCinB, sizeof(int) * idxCinBLen));
-    cudaCheckError(cudaMemcpy(idxCinB, idxCinBHost, sizeof(int) * idxCinBLen, cudaMemcpyHostToDevice));
-    printf("Original:\n");
-    print_int_device_memory(idxCinB, idxCinBLen);
+    cudaCheckError(cudaMemset(idxCinB, 0, sizeof(int) * idxCinBLen));
+    int threadsNumCircle = THREADS_NUM_CIRCLE;
+    int blockNumCircle = ROUND_DIV(numCircles, threadsNumCircle);
+    kernelCircle <<< blockNumCircle, threadsNumCircle>>>(idxCinB);
+    cudaCheckError(cudaDeviceSynchronize());
+    double endCircleTime = CycleTimer::currentSeconds();
+    // exit(1);
+    // DEBUG
+    // int* idxCinBHost = new int[idxCinBLen];
+    // for (int i = 0; i < idxCinBLen; i++) {
+    //     idxCinBHost[i] = rand() % 2;
+    // }
+    // idxCinBLen = nextPow2(idxCinBLen);
+    // cudaCheckError(cudaMemcpy(idxCinB, idxCinBHost, sizeof(int) * idxCinBLen, cudaMemcpyHostToDevice));
+    // printf("Original:\n");
+    // print_int_device_memory(idxCinB, idxCinBLen);
     // exit(1);
 
-
+    double startScanTime = CycleTimer::currentSeconds();
     int *idxCinBScan;
     cudaCheckError(cudaMalloc(&idxCinBScan, sizeof(int) * idxCinBLen));
     thrust::exclusive_scan(thrust::device, idxCinB, idxCinB + idxCinBLen,
                            idxCinBScan);
-    printf("Scan:\n");
-    print_int_device_memory(idxCinBScan, idxCinBLen);
+    double endScanTime = CycleTimer::currentSeconds();
+    // exit(1);
+    // printf("Scan:\n");
+    // print_int_device_memory(idxCinBScan, idxCinBLen);
     // exit(1);
 
-    int threadsNumCompress = THREADS_NUM_COMPRESS;
-    int blockNumCompress = ROUND_DIV(idxCinBLen, threadsNumCompress);
+    // printf("threadsNumCompress: %d, blockNumCompress: %d\n",
+    //        threadsNumCompress, blockNumCompress);
 
-    printf("threadsNumCompress: %d, blockNumCompress: %d\n",
-           threadsNumCompress, blockNumCompress);
-
+    double startPressTime = CycleTimer::currentSeconds();
     int* idxCinBCompress;
     cudaCheckError(cudaMalloc(&idxCinBCompress, sizeof(int) * idxCinBLen));
     cudaCheckError(cudaMemset(idxCinBCompress, -1, sizeof(int) * idxCinBLen));
-    kernelCompressidx <<< blockNumCompress, threadsNumCompress>>>(
+    int threadsNumCompress = THREADS_NUM_COMPRESS;
+    int blockNumCompress = ROUND_DIV(idxCinBLen, threadsNumCompress);
+    kernelCompressIdx <<< blockNumCompress, threadsNumCompress>>>(
         idxCinB,
         idxCinBScan,
         idxCinBCompress,
         idxCinBLen);
-
     cudaCheckError(cudaDeviceSynchronize());
-    print_int_device_memory(idxCinBCompress, idxCinBLen);
+    double endPressTime = CycleTimer::currentSeconds();
+    // print_int_device_memory(idxCinBCompress, idxCinBLen);
     // exit(1);
 
     cudaCheckError(cudaFree(idxCinBScan));
     cudaCheckError(cudaFree(idxCinB));
 
+    double startRenderTime = CycleTimer::currentSeconds();
     dim3 blockDim(ROW_THREADS_PER_BLOCK_RENDER,
                   COLUMN_THREADS_PER_BLOCK_RENDER);
     dim3 gridDim(ROUND_DIV(width, blockDim.x), ROUND_DIV(height, blockDim.y));
-    printf("begin:\n");
     kernelRenderPixel <<< gridDim, blockDim>>>(idxCinBCompress);
     cudaCheckError(cudaDeviceSynchronize());
     cudaCheckError(cudaFree(idxCinBCompress));
-    exit(1);
+    double endRenderTime = CycleTimer::currentSeconds();
+
+    double circleTime = endCircleTime - startCircleTime;
+    double scanTime = endScanTime - startScanTime;
+    double compressTime = endPressTime - startPressTime;
+    double renderTime = endRenderTime - startRenderTime;
+    // exit(1);
+    printf("circleTime: %f\n", circleTime * 1000.f);
+    printf("scanTime: %f\n", scanTime * 1000.f);
+    printf("compressTime: %f\n", compressTime * 1000.f);
+    printf("renderTime: %f\n", renderTime * 1000.f);
 }

@@ -13,6 +13,7 @@
 #include "noise.h"
 #include "sceneLoader.h"
 #include "util.h"
+#include "cycleTimer.h"
 
 
 #define ROUNDED_DIV(x, y) ((x + y - 1) / y)
@@ -941,6 +942,7 @@ print_circle_index_in_box(int start, int end) {
 
 void
 CudaRenderer::render() {
+    double startFindTime = CycleTimer::currentSeconds();
     dim3 threadsPerBlockFind(COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE,
                              ROW_THREADS_PER_BLOCK_FIND_CIRCLE, 1);
     dim3 numBlocksFind(ROUNDED_DIV(boxColNum,
@@ -949,13 +951,21 @@ CudaRenderer::render() {
                                    ROW_THREADS_PER_BLOCK_FIND_CIRCLE), 1);
     kernelFindIntersects <<< numBlocksFind, threadsPerBlockFind>>>();
     cudaCheckError(cudaDeviceSynchronize());
+    double endFindTime = CycleTimer::currentSeconds();
     // print_circle_index_in_box(0, boxRowNum * boxRowNum - 1);
+    double startRenderTime = CycleTimer::currentSeconds();
     dim3 threadsPerBlockRender(COLUMN_THREADS_PER_BLOCK_REDENER,
                                ROW_THREADS_PER_BLOCK_REDENER, 1);
     dim3 numBlocksRender(ROUNDED_DIV(image->width, threadsPerBlockRender.x),
                          ROUNDED_DIV(image->height, threadsPerBlockRender.y),
                          1);
     kernelRenderPixel <<< numBlocksRender, threadsPerBlockRender>>>();
-
     cudaCheckError(cudaDeviceSynchronize());
+    double endRenderTime = CycleTimer::currentSeconds();
+
+    double findTime = endFindTime - startFindTime;
+    double renderTime = endRenderTime - startRenderTime;
+
+    printf("findTime: %f\n", findTime * 1000.f);
+    printf("renderTime: %f\n", renderTime * 1000.f);
 }
