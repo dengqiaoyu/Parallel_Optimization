@@ -891,6 +891,82 @@ kernelRenderPixel(int* idxCInBox, int* numCInBox) {
     }
 }
 
+__global__ void
+kernelRenderPixelSimple() {
+    int width = cuConstRendererParams.imageWidth;
+    int height = cuConstRendererParams.imageHeight;
+    float invWidth = 1.f / width;
+    float invHeight = 1.f / height;
+    int numCircles = cuConstRendererParams.numCircles;
+    SceneName sceneName = cuConstRendererParams.sceneName;
+    int offsetPerIter = MIN(NUM_THREADS_RENDER, MAX_NUM_CIRCLE_IN_SHARED);
+
+    int pixelX = blockDim.x * blockIdx.x + threadIdx.x;
+    int pixelY = blockDim.y * blockIdx.y + threadIdx.y;
+    int iIdx = threadIdx.y;
+    int jIdx = threadIdx.x;
+    int tid = iIdx * COLUMN_THREADS_PER_BLOCK_RENDER + jIdx;
+
+    // return;
+    int boxX = pixelX / BOX_SIDE_LENGTH;
+    int boxY = pixelY / BOX_SIDE_LENGTH;
+    // int boxIdx = boxY * (ROUNDED_DIV(width, BOX_SIDE_LENGTH)) + boxX;
+    int numCircleInThisBox = numCircles;
+
+    __shared__ float4 sharedImageData[ROW_THREADS_PER_BLOCK_RENDER][COLUMN_THREADS_PER_BLOCK_RENDER];
+    if (pixelX < width && pixelY < height) {
+        sharedImageData[iIdx][jIdx] =
+            *(float4*)(&cuConstRendererParams.imageData[4 * (pixelY * width + pixelX)]);
+    }
+    __syncthreads();
+    __shared__ float3 sharedCPos[MAX_NUM_CIRCLE_IN_SHARED];
+    __shared__ float sharedRad[MAX_NUM_CIRCLE_IN_SHARED];
+    __shared__ float3 sharedColor[MAX_NUM_CIRCLE_IN_SHARED];
+
+    int offsetCircle = 0;
+    int cIdx = 0;
+
+    while (offsetCircle < numCircleInThisBox) {
+        if (tid >= offsetPerIter) {
+        } else if (tid + offsetCircle < numCircleInThisBox && \
+                   (cIdx = tid + offsetCircle) != -1) {
+            int index3 = 3 * cIdx;
+            sharedCPos[tid] =
+                *(float3*)(&cuConstRendererParams.position[index3]);
+            sharedRad[tid] = cuConstRendererParams.radius[cIdx];
+            sharedColor[tid] =
+                *(float3*)(&cuConstRendererParams.color[index3]);
+        } else {
+            sharedRad[tid] = 0;
+        }
+        __syncthreads();
+
+        if (pixelX < width && pixelY < height) {
+            int iIdxInShared = 0;
+            while (sharedRad[iIdxInShared] != 0 && \
+                    iIdxInShared < MAX_NUM_CIRCLE_IN_SHARED) {
+                float3 CPosRover = sharedCPos[iIdxInShared];
+                float radRover = sharedRad[iIdxInShared];
+                float3 colorRover = sharedColor[iIdxInShared];
+
+                float2 pixelCenterNorm =
+                    make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
+                                invHeight * (static_cast<float>(pixelY) + 0.5f));
+                shadePixelShared(CPosRover, radRover, colorRover,
+                                 pixelCenterNorm, sceneName,
+                                 &sharedImageData[iIdx][jIdx]);
+                iIdxInShared++;
+            }
+        }
+        offsetCircle += offsetPerIter;
+        __syncthreads();
+    }
+    if (pixelX < width && pixelY < height) {
+        *(float4*)(&cuConstRendererParams.imageData[4 * (pixelY * width + pixelX)]) =
+            sharedImageData[iIdx][jIdx];
+    }
+}
+
 void
 printCircleIdxInBox(int* idxCInBox, int* numCInBox,
                     int totalNumBox, int numCircles,
@@ -940,31 +1016,38 @@ CudaRenderer::render() {
     int height = height_g;
     int numCircles = numCircles_g;
 
-    int boxColNumInImage = ROUNDED_DIV(width, BOX_SIDE_LENGTH);
-    int boxRowNumInImage = ROUNDED_DIV(height, BOX_SIDE_LENGTH);
-    int totalNumBox = boxColNumInImage * boxRowNumInImage;
+    if (numCircles < 10) {
+        dim3 blockDimRender(ROW_THREADS_PER_BLOCK_RENDER,
+                            COLUMN_THREADS_PER_BLOCK_RENDER);
+        dim3 gridDimRender(ROUNDED_DIV(width, blockDimRender.x), ROUNDED_DIV(height, blockDimRender.y));
+        kernelRenderPixelSimple <<< gridDimRender, blockDimRender>>>();
+        cudaCheckError(cudaDeviceSynchronize());
+    } else {
+        int boxColNumInImage = ROUNDED_DIV(width, BOX_SIDE_LENGTH);
+        int boxRowNumInImage = ROUNDED_DIV(height, BOX_SIDE_LENGTH);
+        int totalNumBox = boxColNumInImage * boxRowNumInImage;
 
-    dim3 blockDimBox(COLUMN_NUM_BOX_PER_BLOCK, ROW_NUM_BOX_PER_BLOCK);
-    dim3 gridDimBox(ROUNDED_DIV(boxColNumInImage, blockDimBox.x), ROUNDED_DIV(boxRowNumInImage, blockDimBox.y));
+        dim3 blockDimBox(COLUMN_NUM_BOX_PER_BLOCK, ROW_NUM_BOX_PER_BLOCK);
+        dim3 gridDimBox(ROUNDED_DIV(boxColNumInImage, blockDimBox.x), ROUNDED_DIV(boxRowNumInImage, blockDimBox.y));
 
-    int* idxCInBox;
-    cudaMalloc(&idxCInBox, sizeof(int) * totalNumBox * numCircles);
-    cudaMemset(idxCInBox, -1, sizeof(int) * totalNumBox * numCircles);
-    int* numCInBox;
-    cudaMalloc(&numCInBox, sizeof(int) * totalNumBox);
-    cudaMemset(numCInBox, 0, sizeof(int) * totalNumBox);
-    // print_int_device_memory(numCInBox, totalNumBox);
+        int* idxCInBox;
+        cudaMalloc(&idxCInBox, sizeof(int) * totalNumBox * numCircles);
+        cudaMemset(idxCInBox, -1, sizeof(int) * totalNumBox * numCircles);
+        int* numCInBox;
+        cudaMalloc(&numCInBox, sizeof(int) * totalNumBox);
+        cudaMemset(numCInBox, 0, sizeof(int) * totalNumBox);
+        // print_int_device_memory(numCInBox, totalNumBox);
 
-    kernelBox <<< gridDimBox, blockDimBox>>>(idxCInBox, numCInBox, boxColNumInImage);
-    cudaCheckError(cudaDeviceSynchronize());
-    // print_int_device_memory(numCInBox, totalNumBox);
-    // exit(1);
-    // printCircleIdxInBox(idxCInBox, numCInBox, totalNumBox, numCircles,
-    //                     boxRowNumInImage, boxColNumInImage);
-    dim3 blockDimRender(ROW_THREADS_PER_BLOCK_RENDER,
-                        COLUMN_THREADS_PER_BLOCK_RENDER);
-    dim3 gridDimRender(ROUNDED_DIV(width, blockDimRender.x), ROUNDED_DIV(height, blockDimRender.y));
-    kernelRenderPixel <<< gridDimRender, blockDimRender>>>(idxCInBox, numCInBox);
-    cudaCheckError(cudaDeviceSynchronize());
-    // exit(1);
+        kernelBox <<< gridDimBox, blockDimBox>>>(idxCInBox, numCInBox, boxColNumInImage);
+        cudaCheckError(cudaDeviceSynchronize());
+        // print_int_device_memory(numCInBox, totalNumBox);
+        // exit(1);
+        // printCircleIdxInBox(idxCInBox, numCInBox, totalNumBox, numCircles,
+        //                     boxRowNumInImage, boxColNumInImage);
+        dim3 blockDimRender(ROW_THREADS_PER_BLOCK_RENDER,
+                            COLUMN_THREADS_PER_BLOCK_RENDER);
+        dim3 gridDimRender(ROUNDED_DIV(width, blockDimRender.x), ROUNDED_DIV(height, blockDimRender.y));
+        kernelRenderPixel <<< gridDimRender, blockDimRender>>>(idxCInBox, numCInBox);
+        cudaCheckError(cudaDeviceSynchronize());
+    }
 }
