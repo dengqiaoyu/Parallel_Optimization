@@ -13,6 +13,7 @@
 #include "noise.h"
 #include "sceneLoader.h"
 #include "util.h"
+#include "cycleTimer.h"
 
 
 #define ROUNDED_DIV(x, y) (((x) + (y) - 1) / (y))
@@ -702,9 +703,8 @@ kernelBox(int* idxCInBox, int* numCInBox,
     int tid = tBoxY * COLUMN_NUM_BOX_PER_BLOCK + tBoxX;
 
     int* idxCInBoxBase = idxCInBox + gid * numCircles;
-    int* sharedIdxCInBox = sharedCIdxInBox + tid * NUM_INDEX_SHARED_BOX;
-    int sharedIdxCInBoxLen = 0;
-    int sharedIdxCInBoxOffset = 0;
+    int idxCInBoxLen = 0;
+    int numCinBoxLocal = 0;
 
     // *(float3*)(&cuConstRendererParams.position[index3]);
     int offsetIdxC = 0;
@@ -747,30 +747,13 @@ kernelBox(int* idxCInBox, int* numCInBox,
                                            box_left, box_right,
                                            box_top, box_bottom);
             if (isIntersected != 0) {
-                numCInBox[gid]++;
-                if (sharedIdxCInBoxLen == NUM_INDEX_SHARED_BOX) {
-                    // printf("line 747\n");
-                    for (int i = 0; i < NUM_INDEX_SHARED_BOX; i++) {
-                        idxCInBoxBase[sharedIdxCInBoxOffset + i] =
-                            sharedIdxCInBox[i];
-                    }
-                    sharedIdxCInBoxOffset += NUM_INDEX_SHARED_BOX;
-                    sharedIdxCInBoxLen = 0;
-                }
-                sharedIdxCInBox[sharedIdxCInBoxLen] = idxC;
-                sharedIdxCInBoxLen++;
+                numCinBoxLocal++;
+                idxCInBoxBase[idxCInBoxLen] = idxC;
+                idxCInBoxLen++;
             }
             cIdxShared++;
         }
-
-        if (sharedIdxCInBoxLen != 0) {
-            for (int i = 0; i < sharedIdxCInBoxLen; i++) {
-                idxCInBoxBase[sharedIdxCInBoxOffset + i] =
-                    sharedIdxCInBox[i];
-            }
-        }
-        // __syncthreads();
-        // printf("gBoxX: %d, gBoxY: %d, numCInBox[gid]: %d\n", gBoxX, gBoxY, numCInBox[gid]);
+        numCInBox[gid] = numCinBoxLocal;
         offsetIdxC += NUM_CIRCLE_SHRAED_BOX;
         __syncthreads();
     }
@@ -918,7 +901,7 @@ kernelRenderPixelSimple() {
         sharedImageData[iIdx][jIdx] =
             *(float4*)(&cuConstRendererParams.imageData[4 * (pixelY * width + pixelX)]);
     }
-    __syncthreads();
+    // __syncthreads();
     __shared__ float3 sharedCPos[MAX_NUM_CIRCLE_IN_SHARED];
     __shared__ float sharedRad[MAX_NUM_CIRCLE_IN_SHARED];
     __shared__ float3 sharedColor[MAX_NUM_CIRCLE_IN_SHARED];
@@ -1023,6 +1006,7 @@ CudaRenderer::render() {
         kernelRenderPixelSimple <<< gridDimRender, blockDimRender>>>();
         cudaCheckError(cudaDeviceSynchronize());
     } else {
+        double startFindTime = CycleTimer::currentSeconds();
         int boxColNumInImage = ROUNDED_DIV(width, BOX_SIDE_LENGTH);
         int boxRowNumInImage = ROUNDED_DIV(height, BOX_SIDE_LENGTH);
         int totalNumBox = boxColNumInImage * boxRowNumInImage;
@@ -1040,14 +1024,21 @@ CudaRenderer::render() {
 
         kernelBox <<< gridDimBox, blockDimBox>>>(idxCInBox, numCInBox, boxColNumInImage);
         cudaCheckError(cudaDeviceSynchronize());
+        double endFindTime = CycleTimer::currentSeconds();
+        double findTime = endFindTime - startFindTime;
+        printf("findTime: %f\n", findTime * 1000.f);
         // print_int_device_memory(numCInBox, totalNumBox);
         // exit(1);
         // printCircleIdxInBox(idxCInBox, numCInBox, totalNumBox, numCircles,
         //                     boxRowNumInImage, boxColNumInImage);
+        double startRenderTime = CycleTimer::currentSeconds();
         dim3 blockDimRender(ROW_THREADS_PER_BLOCK_RENDER,
                             COLUMN_THREADS_PER_BLOCK_RENDER);
         dim3 gridDimRender(ROUNDED_DIV(width, blockDimRender.x), ROUNDED_DIV(height, blockDimRender.y));
         kernelRenderPixel <<< gridDimRender, blockDimRender>>>(idxCInBox, numCInBox);
         cudaCheckError(cudaDeviceSynchronize());
+        double endRenderTime = CycleTimer::currentSeconds();
+        float renderTime = endRenderTime - startRenderTime;
+        printf("render: %f\n", renderTime * 1000.f);
     }
 }
