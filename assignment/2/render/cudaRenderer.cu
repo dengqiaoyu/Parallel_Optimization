@@ -30,19 +30,22 @@ inline void cudaAssert(cudaError_t code, const char *file, int line,
 #else
 #define cudaCheckError(ans) ans
 #endif
-#define ROUND_DIV(x, y) ((x + y - 1) / y)
+#define ROUND_DIV(x, y) (((x) + (y) - 1) / (y))
 
 #define THREADS_NUM_CIRCLE 1024
 
-#define BOX_SIDE_LENGTH 32
+// DEBUG 32
+#define BOX_SIDE_LENGTH 4
 
-#define BOX_NUM(width, height) (ROUND_DIV(width, BOX_SIDE_LENGTH) \
-        * ROUND_DIV(height, BOX_SIDE_LENGTH))
+#define BOX_NUM(width, height) (ROUND_DIV((width), BOX_SIDE_LENGTH) \
+        * ROUND_DIV((height), BOX_SIDE_LENGTH))
 #define THREADS_NUM_COMPRESS 1024
-#define ROW_THREADS_PER_BLOCK_RENDER 32
-#define COLUMN_THREADS_PER_BLOCK_RENDER 32
+#define ROW_THREADS_PER_BLOCK_RENDER BOX_SIDE_LENGTH
+#define COLUMN_THREADS_PER_BLOCK_RENDER BOX_SIDE_LENGTH
 #define NUM_THREADS_RENDER (ROW_THREADS_PER_BLOCK_RENDER\
         * COLUMN_THREADS_PER_BLOCK_RENDER)
+#define MAX_NUM_CIRCLE_IN_SHARED 1170
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Putting all the cuda kernels here
@@ -353,7 +356,7 @@ shadePixel(int circleIndex, float2 pixelCenter, float3 p, float4* imagePtr) {
     float diffY = p.y - pixelCenter.y;
     float pixelDist = diffX * diffX + diffY * diffY;
 
-    float rad = cuConstRendererParams.radius[circleIndex];;
+    float rad = cuConstRendererParams.radius[circleIndex];
     float maxDist = rad * rad;
 
     // circle does not contribute to the image
@@ -452,6 +455,44 @@ __global__ void kernelRenderCircles() {
             imgPtr++;
         }
     }
+}
+
+__device__ __inline__ void
+shadePixelShared(float3 p, float rad, float3 rgb,
+                 float2 pixelCenter, SceneName sceneName, float4* pixelPtr) {
+    float diffX = p.x - pixelCenter.x;
+    float diffY = p.y - pixelCenter.y;
+    float pixelDist = diffX * diffX + diffY * diffY;
+    float maxDist = rad * rad;
+    // circle does not contribute to the image
+    if (pixelDist > maxDist)
+        return;
+
+    float3 rgb_real;
+    float alpha;
+
+    if (sceneName == SNOWFLAKES || sceneName == SNOWFLAKES_SINGLE_FRAME) {
+        const float kCircleMaxAlpha = .5f;
+        const float falloffScale = 4.f;
+
+        float normPixelDist = sqrt(pixelDist) / rad;
+        rgb_real = lookupColor(normPixelDist);
+
+        float maxAlpha = .6f + .4f * (1.f - p.z);
+        maxAlpha = kCircleMaxAlpha * fmaxf(fminf(maxAlpha, 1.f), 0.f); // kCircleMaxAlpha * clamped value
+        alpha = maxAlpha * exp(-1.f * falloffScale * normPixelDist * normPixelDist);
+    } else {
+        rgb_real = rgb;
+        alpha = .5f;
+    }
+    float oneMinusAlpha = 1.f - alpha;
+    float4 existingColor = *pixelPtr;
+    float4 newColor;
+    newColor.x = alpha * rgb_real.x + oneMinusAlpha * existingColor.x;
+    newColor.y = alpha * rgb_real.y + oneMinusAlpha * existingColor.y;
+    newColor.z = alpha * rgb_real.z + oneMinusAlpha * existingColor.z;
+    newColor.w = alpha + existingColor.w;
+    *pixelPtr = newColor;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -755,37 +796,145 @@ __global__ void
 kernelRenderPixel(int* idxCinBCompress) {
     int width = cuConstRendererParams.imageWidth;
     int height = cuConstRendererParams.imageHeight;
+    float invWidth = 1.f / width;
+    float invHeight = 1.f / height;
     int numCircles = cuConstRendererParams.numCircles;
+    SceneName sceneName = cuConstRendererParams.sceneName;
+    int offsetPerIter = MIN(NUM_THREADS_RENDER, MAX_NUM_CIRCLE_IN_SHARED);
+
     int pixelX = blockDim.x * blockIdx.x + threadIdx.x;
     int pixelY = blockDim.y * blockIdx.y + threadIdx.y;
+    int iIdx = threadIdx.y;
+    int jIdx = threadIdx.x;
+    int tid = iIdx * COLUMN_THREADS_PER_BLOCK_RENDER + jIdx;
 
-    if (pixelX >= width || pixelY >= height)
-        return;
-
+    // return;
     int boxX = pixelX / BOX_SIDE_LENGTH;
     int boxY = pixelY / BOX_SIDE_LENGTH;
-
     int boxIdx = boxY * (ROUND_DIV(width, BOX_SIDE_LENGTH)) + boxX;
     int* cList = idxCinBCompress + boxIdx * numCircles;
 
+    if (pixelY == 2 && pixelX == 2) {
+        printf("pixelY: %d, pixelX: %d, iIdx: %d, jIdx: %d, tid: %d\n",
+               pixelY, pixelX, iIdx, jIdx, tid);
+        printf("boxY: %d, boxX: %d\n", boxY, boxX);
+        printf("boxIdx: %d\n", boxIdx);
+    }
 
-    for (int i = 0; i < numCircles; i++) {
-        int index = cList[i];
-        if (index == -1) {
-
-            break;
+    // DEBUG
+    // __syncthreads();
+    __shared__ float4 sharedImageData[ROW_THREADS_PER_BLOCK_RENDER][COLUMN_THREADS_PER_BLOCK_RENDER];
+    if (pixelX < width && pixelY < height) {
+        sharedImageData[iIdx][jIdx] =
+            *(float4*)(&cuConstRendererParams.imageData[4 * (pixelY * width + pixelX)]);
+        if (pixelY == 2 && pixelX == 2) {
+            printf("r: %f, g: %f, b: %f, a: %f\n",
+                   sharedImageData[iIdx][jIdx].x, sharedImageData[iIdx][jIdx].y,
+                   sharedImageData[iIdx][jIdx].z, sharedImageData[iIdx][jIdx].w);
         }
-        // printf("index: %d\n", i);
-        // printf("pixelY: %d, pixelX: %d, index: %d\n", pixelY, pixelX, index);
-        int index3 = 3 * index;
 
-        float3 p = *(float3*)(&cuConstRendererParams.position[index3]);
-        float invWidth = 1.f / width;
-        float invHeight = 1.f / height;
-        float4* imgPtr = (float4*)(&cuConstRendererParams.imageData[4 * (pixelY * width + pixelX)]);
-        float2 pixelCenterNorm = make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
-                                             invHeight * (static_cast<float>(pixelY) + 0.5f));
-        shadePixel(index, pixelCenterNorm, p, imgPtr);
+    }
+    // DEBUG
+    // __syncthreads();
+    __shared__ float3 sharedCPos[MAX_NUM_CIRCLE_IN_SHARED];
+    __shared__ float sharedRad[MAX_NUM_CIRCLE_IN_SHARED];
+    __shared__ float3 sharedColor[MAX_NUM_CIRCLE_IN_SHARED];
+    __shared__ int sharedIsReachEnd;
+
+    if (tid == 0) {
+        sharedIsReachEnd = 0;
+    }
+
+    int isReachEnd = 0;
+
+    int offsetCircle = 0;
+    int cIdx = 0;
+    // if (boxIdx == 0) {
+    //     printf("tid: %d\n", tid);
+    // }
+
+    // __syncthreads();
+    while (sharedIsReachEnd == 0) {
+        if (tid >= MAX_NUM_CIRCLE_IN_SHARED) {
+            //do nothing
+        } else if (tid + offsetCircle < numCircles && \
+                   (cIdx = cList[tid + offsetCircle]) != -1) {
+            // if (boxIdx == 0) {
+            //     printf("tid: %d, cIdx: %d\n", tid, cIdx);
+            // }
+            int index3 = 3 * cIdx;
+            sharedCPos[tid] =
+                *(float3*)(&cuConstRendererParams.position[index3]);
+            sharedRad[tid] = cuConstRendererParams.radius[cIdx];
+            sharedColor[tid] =
+                *(float3*)(&cuConstRendererParams.color[index3]);
+            // if (boxIdx == 0) {
+            //     printf("sharedRad: %f, cIdx: %d\n", sharedRad[tid], cIdx);
+            //     printf("r: %f, g: %f, b: %f\n",
+            //            sharedColor[tid].x,
+            //            sharedColor[tid].y,
+            //            sharedColor[tid].z);
+            // }
+        } else {
+            isReachEnd = 1;
+            sharedRad[tid] = 0;
+        }
+
+        // if (pixelY == 2 && pixelX == 2) {
+        //     for (int ii = 0; ii < 10; ii++) {
+        //         printf("%f, ", sharedRad[ii]);
+        //     }
+        // }
+
+
+        // __device__ __inline__ void
+        // shadePixelShared(float3 p, float rad, float3 rgb,
+        //                  float2 pixelCenter, SceneName sceneName, float4 * pixelPtr)
+        __syncthreads();
+        if (isReachEnd == 1)
+            sharedIsReachEnd = 1;
+
+        if (pixelX < width && pixelY < height) {
+            int iIdxInShared = 0;
+            while (sharedRad[iIdxInShared] != 0 && \
+                    iIdxInShared < MAX_NUM_CIRCLE_IN_SHARED) {
+                // if (pixelY == 2 && pixelX == 2) {
+                //     printf("Enter\n");
+                //     printf("pixelY: %d, pixelX: %d, iIdx: %d, jIdx: %d, tid: %d\n",
+                //            pixelY, pixelX, iIdx, jIdx, tid);
+                // }
+                float3 CPosRover = sharedCPos[iIdxInShared];
+                float radRover = sharedRad[iIdxInShared];
+                float3 colorRover = sharedColor[iIdxInShared];
+
+                float2 pixelCenterNorm =
+                    make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
+                                invHeight * (static_cast<float>(pixelY) + 0.5f));
+                // if (pixelY == 2 && pixelX == 2) {
+                //     float debug_diffX = CPosRover.x - pixelCenterNorm.x;
+                //     float debug_diffY = CPosRover.y - pixelCenterNorm.y;
+                //     float debug_pixelDist = debug_diffX * debug_diffX + debug_diffY * debug_diffY;
+                //     float debug_maxDist = radRover * radRover;
+                //     printf("debug_pixelDist: %f, debug_maxDist: %f\n", debug_pixelDist, debug_maxDist);
+                // }
+                shadePixelShared(CPosRover, radRover, colorRover,
+                                 pixelCenterNorm, sceneName,
+                                 &sharedImageData[iIdx][jIdx]);
+                iIdxInShared++;
+            }
+        }
+        offsetCircle += offsetPerIter;
+        __syncthreads();
+    }
+
+    // if (pixelY == 2 && pixelX == 2) {
+    //     printf("after: r: %f, g: %f, b: %f, a: %f\n",
+    //            sharedImageData[iIdx][jIdx].x, sharedImageData[iIdx][jIdx].y,
+    //            sharedImageData[iIdx][jIdx].z, sharedImageData[iIdx][jIdx].w);
+    // }
+    if (pixelX < width && pixelY < height) {
+        *(float4*)(&cuConstRendererParams.imageData[4 * (pixelY * width + pixelX)]) =
+            sharedImageData[iIdx][jIdx];
     }
 }
 
@@ -865,7 +1014,7 @@ CudaRenderer::render() {
         idxCinBLen);
     cudaCheckError(cudaDeviceSynchronize());
     double endPressTime = CycleTimer::currentSeconds();
-    // print_int_device_memory(idxCinBCompress, idxCinBLen);
+    print_int_device_memory(idxCinBCompress, idxCinBLen);
     // exit(1);
 
     cudaCheckError(cudaFree(idxCinBScan));
@@ -889,4 +1038,5 @@ CudaRenderer::render() {
     printf("scanTime: %f\n", scanTime * 1000.f);
     printf("compressTime: %f\n", compressTime * 1000.f);
     printf("renderTime: %f\n", renderTime * 1000.f);
+    //exit(1);
 }
