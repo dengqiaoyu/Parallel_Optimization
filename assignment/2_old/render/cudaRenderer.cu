@@ -16,8 +16,8 @@
 #include "cycleTimer.h"
 
 
-#define ROUNDED_DIV(x, y) ((x + y - 1) / y)
-#define SIDE_LENGTH 32
+#define ROUNDED_DIV(x, y) (((x) + (y) - 1) / (y))
+#define SIDE_LENGTH 16
 #define ROW_THREADS_PER_BLOCK_FIND_CIRCLE 8
 #define COLUMN_THREADS_PER_BLOCK_FIND_CIRCLE 8
 #define THREADS_PER_BLOCK_FIND_CIRCLE (ROW_THREADS_PER_BLOCK_FIND_CIRCLE * \
@@ -762,27 +762,15 @@ __global__ void kernelFindIntersects() {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
 
-    // printf("x: %d, y: %d\n", x, y);
-    // return;
     int numCircles = cuConstRendererParams.numCircles;
-    // printf("numCircles: %d\n", numCircles);
-    // return;
+
     int boxIndex = y * cuConstRendererParams.boxRowNum + x;
     int numCircleInBox = 0;
     int* indexCircleInBox = (cuConstRendererParams.indexCircleInBox) + boxIndex * numCircles;
-    // int leftUpPixelY = y * SIDE_LENGTH;
-    // int leftUpPixelX = x * SIDE_LENGTH;
-    // // printf("boxIndex: %d, leftUpPixelX: %d, leftUpPixelY: %d, blockDim.x: %d\n",
-    // //        boxIndex, leftUpPixelX, leftUpPixelY, blockDim.x);
-    // // return;
-    // int rightUpPixelY = leftUpPixelY;
-    // int rightUpPixelX = leftUpPixelX + SIDE_LENGTH;
-    // int leftDownPixelY = leftUpPixelY + SIDE_LENGTH;
-    // int leftDownPixelX = leftUpPixelX;
-    // int rightDownPixelY = leftUpPixelY + SIDE_LENGTH;
-    // int rightDownPixelX = leftUpPixelX + SIDE_LENGTH;
+
     int width = cuConstRendererParams.imageWidth;
     int height = cuConstRendererParams.imageHeight;
+
     float box_left = ((float)x) * SIDE_LENGTH / width;
     float box_right = ((float)x + 1) * SIDE_LENGTH / width;
     float box_top = ((float)y) * SIDE_LENGTH / height;
