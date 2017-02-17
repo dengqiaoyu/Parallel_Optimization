@@ -753,10 +753,11 @@ kernelBox(int* idxCInBox, int* numCInBox,
             }
             cIdxShared++;
         }
-        numCInBox[gid] = numCinBoxLocal;
+
         offsetIdxC += NUM_CIRCLE_SHRAED_BOX;
         __syncthreads();
     }
+    numCInBox[gid] = numCinBoxLocal;
 }
 
 __device__ __inline__ void

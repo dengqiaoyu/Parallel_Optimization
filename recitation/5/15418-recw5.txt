@@ -1,0 +1,519 @@
+15-418/618 Spring 2017
+Recitation Notes Week 5
+17 Feb 2017
+
+I. GETTING STARTED
+
+Login to one of the GHC machines (ghc[26-46].ghc.andrew.cmu.edu).
+
+Retrieve a copy of
+
+    /afs/cs.cmu.edu/academic/class/15418-s17/recitations/recw5.tar
+
+Untar it.  You'll see the subdirectories: "recw3-code/mvmul".  You can
+run make and compile the code
+
+II.  Themes for the day
+
+Making a program run fast on a multicore machine can involve any of
+the following combinations:
+
+* Making maximum use of instruction-level parallelism (ILP)
+* Making maximum use of multicore support of multithreading
+* Using the CPU's SIMD instructions
+
+We will explore all 3 of these possibilities, using as a problem
+computing the product of a matrix times a vector, where the matrix
+is potentially very sparse (i.e., most of the elements are zero)
+
+III. Matrix-vector product
+
+This is one of the most important computational kernels.  It's at the
+core of linear solvers, computing pagerank, and many other
+machine-learning, scientific, and graphics applications.
+
+For an n x n matrix M, the goal is to compute y = M*x for a vector x.
+
+The straightforward implementation of this requires n*n
+multiplications and n*n additions.
+
+A. Sparse Matrices
+
+In practice, many real-world matrices are very sparse, meaning that a
+large fraction (sometimes most) equal zero.  In such a case, it would
+be nice to save both space and time by representing only the nonzero
+values of the matrix and only using these in the multiplication.
+
+The most common data structure for sparse matrices is "compressed
+sparse row" (CSR).  Here are some declarations (from mvmul/matrix.h):
+
+// Underlying data type for representing matrix indices.
+typedef unsigned index_t;
+
+// Type of matrix data
+typedef float data_t;
+
+// CSR representation of square matrix
+typedef struct {
+    index_t nrow;       // Number of rows (= number of columns)
+    index_t nnz;        // Number of nonzero elements
+    data_t *value;      // Nonzero matrix values in row-major order [nnz]
+    index_t *cindex;    // Column index for each nonzero entry      [nnz]
+    index_t *rowstart;  // Offset of each row                       [nrow+1]
+} csr_t;
+
+Here are the elements of the data structure:
+
+nrow: 	   The number of rows (and columns)
+nnz:	   The number of nonzero elements in the matrix
+value:	   An array containing the nonzero values
+cindex:	   The columns associated with the nonzero matrix elements
+rowstart:  An array such that rowstart[r] denotes the starting index
+	   of the first element in row r, and rowstart[nrow] = nnz.
+	   Thus, row r has rowstart[r+1] - rowstart[r] elements
+	   
+
+As an example, consider the 4x4 matrix
+
+    0    0    0    1
+    5	 8    0	   0
+    0	 0    3	   0
+    0	 6    0	   9
+
+For this we would have:
+
+nrow = 4
+nnz  = 6
+value =  [1 5 8 3 6 9]
+cindex = [3 0 1 2 1 3]
+rowstart=[0 1 3 4 6]
+
+We'll also use a struct to represent a vector:
+
+// Dense representation of vector
+typedef struct {
+    index_t length;
+    // Value accessed
+    data_t *value;
+    // Value from original allocation
+    data_t *svalue;
+} vec_t;
+
+(The distinction between value and svalue will become important when
+ we write code to use the vector SIMD instructions.)
+
+II. Benchmarks
+
+A number of benchmarks are in the directory:
+
+/afs/cs.cmu.edu/academic/class/15418-s17/recitations/recw5/benchmarks
+
+There names are of the form: m-LSIZE-DPCT-TYPE-ID.csr, where:
+
+* LSIZE is the log10 of nrow.
+  There are benchmarks for 2 (nrow = 100) and 3 (nrow = 1000)
+
+* DPCT is the matrix density, expressed as a percent.  Density is defined
+  as nnz/(nrow * nrow).  Available densities are:
+  - 10% (very sparse)
+  - 25%
+  - 50%
+  - 100% (completely dense)
+
+* TYPE indicates how the nonzero elements are distributed among the rows:
+  - u: Uniform.  Each row has approximately nnz/nrow elements
+  - r: Random.   The row sizes are random
+  - s: Skewed.   The elements are packed into as few rows as possible
+
+* ID is an ID ranging from 0 to 4.  The program mrun times runs using 5
+  different matrices and reports the average performance (in gigaflops)
+
+III. Running mrun
+
+mrun has various flags controlling how it runs, mostly
+to select the class of benchmark.  These are:
+
+Most of the flags concern benchmark selection
+
+   -l LSIZE
+   -d DPCT
+   -t TYPE
+
+The remaining flag is:
+
+   -D
+
+When set, this will "densify" the matrix, converting it to a dense
+matrix. and then measuring the performance.  However, the reported
+number of gigaflops is given according to the number of operations
+that would be required for the sparse version.  I.e., it assumes the
+number of operations is 2*nnz, not 2*nrow*nrow.
+
+We will use this flag to compare the tradeoff between sparse and dense
+representations.
+
+IV. Computing the product
+
+Computing M*x can be decomposed into two parts:
+
+A. An inner loop that computes the inner product of row r of M times x
+   to get element r of the product.  This is called the "row-vector
+   product" (RVP), declared as:
+
+// Function that multiplies one row of a sparse matrix times
+// a dense vector
+typedef float (*rvp_csr_t)(csr_t *m, vec_t *x, index_t r);
+
+B. An outer loop that performs the row-vector product for all rows of
+   M.  This is called the "matrix-vector product" (MVP)
+
+// Function that multiplies a sparse matrix times a dense vector
+// to populate a dense vector, using a specified row-vector product
+// function
+typedef void (*mvp_csr_t)(csr_t *m, vec_t *x, vec_t *y, rvp_csr_t rp_fun);
+
+Here's basic code for the two operations (from mvmul.cpp):
+
+// Standard sequential version
+float rvp_csr_seq(csr_t *m, vec_t *x, index_t r) {
+    index_t idxmin = m->rowstart[r];
+    index_t idxmax = m->rowstart[r+1];
+    index_t idx;
+    float val = 0.0;
+    for (idx = idxmin; idx < idxmax; idx++) {
+	index_t c = m->cindex[idx];
+	data_t mval = m->value[idx];
+	data_t xval = x->value[c];
+	val += mval * xval;
+    }
+    return val;
+}
+
+// Baseline implementation of matrix product function
+void mvp_csr_seq(csr_t *m, vec_t *x, vec_t *y, rvp_csr_t rp_fun) {
+    index_t nrow = m->nrow;
+    index_t r;
+    for (r = 0; r < nrow; r++) {
+	y->value[r] = rp_fun(m, x, r);
+    }
+}
+
+Try running mval with LSIZE=3.  The performance is given by the
+combination MVP=seq RVP=seq.  Use LSIZE=3, DPCT=100.
+
+V.  Making use of ILP
+
+Let's analyze how fast the code should run.  Remember the parameters
+of the GHC machines:
+
+* 2 pipelined fused multipy-add (FMA) units, with a latency of 3 cycles
+* 2 pipelined load units
+
+1. Sequential analysis
+   a. How many loads does each iteration require?
+   b. How many (floating-point) adds?
+   c. How many (floating-point) multiplies?
+   d. What is the minimum number of cycles required per element?
+   e. On a 3 GHz machine, how many gigaflops will that be?
+   f. How does the actual code compare?
+
+
+2. Exploiting ILP
+
+Suppose we could using loop unrolling and parallel accumulators to
+make maximum use of the arithmetic units and their pipelining.
+
+Here's some code, where UNROLL is a compile-time constant:
+
+// Use unrolling and multiple accumulators
+float rvp_csr_par(csr_t *m, vec_t *x, index_t r) {
+    index_t idxmin = m->rowstart[r];
+    index_t idxmax = m->rowstart[r+1];
+    index_t idx;
+    float uval[UNROLL];
+    float val = 0.0;
+    for (index_t i = 0; i < UNROLL; i++)
+	uval[i] = 0.0;
+    for (idx = idxmin; idx+UNROLL <= idxmax; idx+=UNROLL) {
+	for (index_t i = 0; i < UNROLL; i++) {
+	    index_t c = m->cindex[idx+i];
+	    data_t mval = m->value[idx+i];
+	    data_t xval = x->value[c];
+	    uval[i] += mval * xval;
+	}
+    }
+    for (; idx < idxmax; idx ++) {
+	index_t c = m->cindex[idx];
+	data_t mval = m->value[idx];
+	data_t xval = x->value[c];
+	val += mval * xval;
+    }
+
+    for (index_t i = 0; i < UNROLL; i++)
+	val += uval[i];
+    return val;
+}
+
+With the -O3 flag set, gcc will unroll this code, eliminating the loop
+index i.
+
+   a. Which of the execution units is the most limiting resource?
+   b. What would be the maximum throughput (in elements per cycle)
+      given execution unit constraints?
+   c. What would that imply for gigaflops?
+   d. What would be the minimum level of unrolling to achieve that
+      throughput?
+   e. How close does our code come to this limit (MVP = seq, RVP = par)?
+
+   
+VI.  Using OpenMP to make use of multiple cores
+
+GCC provides built-in support for OpenMP.  The idea is to decorate a
+regular C/C++ program with "pragmas" telling the compiler and runtime
+system how to extract parallelism from the progam.
+
+OpenMP has MANY features, but the basic two we'll look at are very simple.
+
+A. Loop Parallelism - Static
+
+Consider a loop where each iteration is independent.  E.g., the SAXPY
+loop goes like:
+
+    for (size_t i=0; i<N; i++) {
+        result[i] = scale * X[i] + Y[i];
+    }
+
+Adding the pragma:
+
+#pragma omp parallel for schedule(static)
+
+just before the loop, tells the compiler to divide the loop into T
+chunks of size N/T each and perform them separately.  (Usually, T is
+set to the number of available processors as listed in /proc/cpuinfo,
+i.e., it assumes hyperthreading is worthwhile).
+
+Exercise:
+
+  a  Add this pragma before the loop in the function mvp_csr_mps.
+  b. Recompile and run mrun.  What's the performance (MVP = mps, RVP =
+     seq or par)?
+  c. The GHC machines have 8 cores, each with 2-way hyperthreading.
+     What would be the maximum speedup achievable?  How close do we come?
+
+
+B. Loop parallelism - Dynamic
+
+Exercise:
+
+   a. Run the benchmarks with DPCT=10 and TYPE= u and s.
+   b. How well does the MVP = mps version do?
+   c. What causes the discrepancy?
+
+
+The mps version uses static partitioning, where the work is
+partitioned in advance.  Another option is to use dynamic parallelism.
+In this version, the work is divided into more, smaller chunks and
+scheduled across the threads dynamically.
+
+Exercise:
+
+    a. Modify the code in function mvp_csr_mpd to use dynamic
+        parallelism with the pragma:
+
+#pragma omp parallel for schedule(dynamic)
+	
+    b. How does its performance compare to static parallelism for
+       types u and s, for both sparse (DPCT = 10) and dense (DPCT =
+       100)?
+
+
+C. Reduction
+
+A second class of loops that can be parallelized with OpenMP is
+reduction loops, where elements are combined using a binary
+associative operator.  E.g.:
+
+    sum = 0.0;
+    for (i = 0; i < N; i++) {
+       sum += a[i] * b[i];
+    }
+
+In theory, such a loop can be reduced to a tree with span log N.  In
+practice, it can be divided into even chunks and either dynamically or
+statically scheduled.  Here's the version with pragma:
+
+    sum = 0.0;
+#pragma omp parallel for reduction(+:sum)   
+    for (i = 0; i < N; i++) {
+       sum += a[i] * b[i];
+    }
+
+Exercise:
+
+   a. Implement a parallel RVP function by adding the appropriate
+      pragma to the code in rvp_csr_mpr.
+   b. Are there any cases where it gets better performance than a
+      sequential RVP?
+
+
+Extra:
+
+The loop unrolling code can't use OpenMP reduction, since the
+reduction variables must be scalar.  The code in rvp_csr_mpr3 has the
+loop unrolled explicitly.  Try modifying it to use OpenMP reduction.
+
+VII. Shifting to a dense representation.
+
+There's more overhead in using a sparse representation for
+matrix-vector product: there's an extra level of indirection in
+reading the matrix data, and the access patterns are less predictable.
+
+Here's a sequential version of dense matrix-vector multiply:
+
+// Baseline implementation of dense row product function
+float rvp_dense_seq(dense_t *m, vec_t *x, index_t r) {
+    index_t nrow = m->nrow;
+    index_t c;
+    index_t idx = r*nrow;
+    float val = 0.0;
+    for (c = 0; c < nrow; c++)
+	val += x->value[c] * m->value[idx++];
+    return val;
+}
+
+Getting parallelism through loop unrolling an multiple accumulators is
+straightforward.
+
+1. Benchmarking
+  a. Run the program for DPCT=100 with and without the -D switch
+  b. Compare performance for the cases: MVP = (seq, mps), RVP =
+     (seq. par)
+
+
+
+2. Sequential analysis
+   a. How many loads does each iteration require?
+   b. How many (floating-point) adds?
+   c. How many (floating-point) multiplies?
+   d. What is the minimum number of cycles required per element?
+   e. On a 3 GHz machine, how many gigaflops will that be?
+   f. How does the actual code compare?
+
+
+
+3. Parallel analysis
+   a. Which of the execution units is the most limiting resource?
+   b. What would be the maximum throughput (in elements per cycle)
+      given execution unit constraints?
+   c. What would that imply for gigaflops?
+   d. What would be the minimum level of unrolling to achieve that
+      throughput?
+   e. How close does our code come to this limit (MVP = seq, RVP = par)?
+
+
+VIII.  Vectorization
+
+When you run the dense benchmarks, you see some much more interesting
+numbers using RVP's "vec" and "pvec".  These make use of the machine's
+SIMD instructions.  AVX2 registers can hold 8 float's and get 8-way
+parallelism.  Both FMA's and the load units are vectorized.
+
+There a few ways to make use of SIMD parallelism.  None are convenient:
+
+  * Write x86-64 assembler.  Not recommended.
+  * Use Intel intrinsics.  Fairly tedious
+  * Use ISPC.  This would be worth trying
+  * Use GCC vector extensions.  These are somewhat limited, but a
+    better choice in this case.  In principle, the code should then be
+    portable to other SIMD instruction sets, too.
+
+We'll use the GCC vector extensions.  A brief introduction is presented in:
+
+      http://csapp.cs.cmu.edu/3e/waside/waside-simd.pdf
+
+Here's dense RVP code using GCC vector extensions.
+
+Preliminaries:
+
+We define a data type "vector_t" that represents 8 floats in parallel:
+
+/// Vectorizing for AVX2
+#define VBYTES 32
+#define VSIZE (VBYTES/sizeof(data_t))
+
+typedef data_t vector_t __attribute__((vector_size(VBYTES)));
+
+Operators such as +, * (multiplication), and * (dereferencing) works
+on this data type.  The individual elements can be referenced using
+array notation.
+
+Here's the RVP code.  It's a lot like loop unrolling:
+
+// Use gcc vector extensions
+float rvp_dense_vec(dense_t *m, vec_t *x, index_t r) {
+    index_t nrow = m->nrow;
+    index_t c;
+    index_t idx = r*nrow;
+    // 8 parallel accumulators, initialized to 0
+    vector_t vval;
+    for (index_t j = 0; j < VSIZE; j++)
+	vval[j] = 0.0;
+    for (c = 0; c + VSIZE <= nrow; c+=VSIZE) {
+    	// Read blocks of 8 floats from memory
+	vector_t *xv = (vector_t *) &x->value[c];
+	vector_t *mv = (vector_t *) &m->value[idx];
+	// Multiply 8 values in parallel
+	vval += *xv * *mv;
+	idx += VSIZE;
+    }
+    float val = 0.0;
+    for (index_t j = 0; j < VSIZE; j++)
+     	// Sum values from accumulators
+	val += vval[j];
+    // Complete remaining columns
+    for (; c < nrow; c++)
+	val += x->value[c] * m->value[idx++];
+    return val;
+}
+
+The code rvp_dense_pvec combines 8-way vectorization with 3-way
+unrolling, yielding a net of 24-way parallelism.
+
+Exercise:
+
+   a. For DPCT=100, compare the vectorized code to the related
+      unvectorized code.  What is the speedup?
+   b. What factors limit the value of vectorization?
+   c. What is the absolute peak throughput this machine could have
+      on dense matrix-vector multiply?
+
+
+Implementation note:
+
+The AVX2 SIMD memory read instruction will sometimes segfault if the
+address isn't a multiple of 32.  Malloc/calloc/realloc only guarantee
+an alignment of 16.  You'll see extra code in matrix.cpp to make sure
+any allocated matrix or vector has a starting address for the data
+that's a multiple of 32.
+
+Extra:
+
+It would be possible to vectorize the sparse RVP using GCC
+vectorization, plus an Intel intrinsic to perform a gather.  You might
+have to pad the rows of the matrix to make sure that each one is a
+multiple of 8 elements long.
+
+Sparse vs. dense
+
+At what density does it become advantageous to go with a dense
+implementation?  Consider for the various implementations.
+
+
+IX. Reflection
+
+* Of all the speedups shown here, what was the relative effort versus
+  their benefit?
+
+* How much single-CPU performance were we losing by using a
+  conventional, sequential implementation?
+
