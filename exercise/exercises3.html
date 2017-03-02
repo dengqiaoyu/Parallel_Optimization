@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+<link rel="icon" href="http://15418.courses.cs.cmu.edu/spring2017/assets/images/favicon/dragon.png" type="image/png">
+<title>Exercises and Practice Problems : Parallel Computer Architecture and Programming : 15-418/618 Spring 2017</title>
+
+<script src="http://use.edgefonts.net/open-sans:n3,i3,n4,i4,n6,i6,n7,i7,n8,i8.js"></script>
+<script src="http://use.edgefonts.net/open-sans-condensed:n3,i3,n7.js"></script>
+
+<script src="http://15418.courses.cs.cmu.edu/spring2017/assets/third_party/jquery/1.8.3/jquery.min.js"></script>
+<script src="http://15418.courses.cs.cmu.edu/spring2017/assets/third_party/jquery/timeago/jquery.timeago.js"></script>
+<script src="http://15418.courses.cs.cmu.edu/spring2017/assets/third_party/jquery/cookie/jquery.cookie.js"></script>
+
+<script src="http://15418.courses.cs.cmu.edu/spring2017/assets/third_party/codemirror-3.0/lib/codemirror.js"></script>
+<script src="http://15418.courses.cs.cmu.edu/spring2017/assets/third_party/codemirror-3.0/mode/markdown/markdown.js"></script>
+
+<script type="text/javascript"
+  src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  skipStartupTypeset: true,
+  showProcessingMessages: false,
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    processEscapes: true
+  }
+});
+</script>
+
+
+<link rel="stylesheet" type="text/css" href=" http://15418.courses.cs.cmu.edu/spring2017/assets/third_party/codemirror-3.0/lib/codemirror.css">
+
+<script src="http://15418.courses.cs.cmu.edu/spring2017/assets/third_party/google-code-prettify/prettify.js"></script>
+<link rel="stylesheet" type="text/css" href=" http://15418.courses.cs.cmu.edu/spring2017/assets/third_party/google-code-prettify/prettify.css">
+
+<!-- NOTE(kayvonf): place at end to override 3rd party tools -->
+<link rel="stylesheet" type="text/css" href=" http://15418.courses.cs.cmu.edu/spring2017/assets/css/main.css">
+
+<script type="text/javascript">
+var edit_comment_url = "http://15418.courses.cs.cmu.edu/spring2017/comments/ajax_edit_comment";
+var delete_comment_url = "http://15418.courses.cs.cmu.edu/spring2017/comments/ajax_delete_comment";
+var archive_comment_url = "http://15418.courses.cs.cmu.edu/spring2017/comments/ajax_archive_comment";
+var add_private_comment_url = "http://15418.courses.cs.cmu.edu/spring2017/comments/ajax_add_private_comment";
+var add_instructor_comment_url = "http://15418.courses.cs.cmu.edu/spring2017/comments/ajax_add_instructor_comment";
+var add_comment_url = "http://15418.courses.cs.cmu.edu/spring2017/comments/ajax_add_comment";
+var comment_vote_url = "http://15418.courses.cs.cmu.edu/spring2017/comments/ajax_comment_vote";
+var toggle_subscribe_url = "http://15418.courses.cs.cmu.edu/spring2017/comments/ajax_toggle_subscribe";
+var prompt_students_url = "http://15418.courses.cs.cmu.edu/spring2017/comments/ajax_prompt_students";
+var keep_alive_url = "http://15418.courses.cs.cmu.edu/spring2017/keep_alive";
+</script>
+
+<script type="text/javascript" src="http://15418.courses.cs.cmu.edu/spring2017/assets/js/main.js"></script>
+<script type="text/javascript" src="http://15418.courses.cs.cmu.edu/spring2017/assets/js/comments.js"></script>
+
+</head>
+<body>
+
+<div id="modal_overlay"></div>
+
+<div class="main_container">
+
+<div class="topbar">
+<div class="topbar_left"><a href="http://15418.courses.cs.cmu.edu/spring2017/home">[Home]</a></div>
+<div class="topbar_left"><a href="http://15418.courses.cs.cmu.edu/spring2017/newsfeed">[Feed]</a></div>
+<div class="topbar_left"><a href="http://15418.courses.cs.cmu.edu/spring2017/lectures">[Lectures]</a></div>
+<div class="topbar_left"><a href="http://15418.courses.cs.cmu.edu/spring2017/exercises">[Exercises]</a></div>
+<!-- <div class="topbar_left"><a href="http://15418.courses.cs.cmu.edu/spring2017/projects">[Projects]</a></div> -->
+
+
+
+<div class="topbar_right">
+
+
+Welcome, <a href="http://15418.courses.cs.cmu.edu/spring2017/users/edit">Qiaoyu</a>&nbsp <img class='topbar_profile_picture' src='/spring2017content/profile_pictures/Qiaoyu.jpg' align='top' />
+<a href="http://15418.courses.cs.cmu.edu/spring2017/users/logout">[Logout]</a>
+
+
+</div>
+
+</div>
+
+<div class="content_container">
+
+<!-- end of header -->
+
+
+
+
+<div class="home_container">
+
+<div class="home_title">Parallel Computer Architecture and Programming <span style="font-size: 12pt;">(CMU 15-418/618)</span> </div>
+
+<p>This page contains practice exercises to help you understand
+material in the course. Reference material and lecture videos are
+available on the <a href="http://15418.courses.cs.cmu.edu/spring2017/lectures">Lectures</a> page.</p>
+
+<div class="overview_main_item overview_ruled_element">Self-Check Exercises</div>
+
+<p>
+<div><a href="/spring2017content/exercises/exercise1.pdf">Exercise 1: A Task Queue + The Professor with the Most ALUs (Sometimes) Wins</a></div>
+<div class="small_text colored_text">Concepts tested: multi-core architecture, hardware multi-threading</div>
+</p>
+
+<p>
+<div><a href="/spring2017content/exercises/exercise2.pdf">Exercise 2: A Yinzer Processor Pipeline + Data Parallel Histograms + SIMD Tree Search</a></div>
+<div class="small_text colored_text">Concepts tested: pipelining, data-parallel programming, SIMD execution</div>
+</p>
+
+<p>
+<div><a href="/spring2017content/exercises/exercise3.pdf">Exercise 3: Pixel Processing in Parallel + Particle Processing</a></div>
+<div class="small_text colored_text">Concepts tested: optimizing parallel code, workload imbalance, synchronization, false sharing</div>
+</p>
+
+<p>
+<div><a href="/spring2017content/exercises/exam1practice.pdf">Exam 1 Practice Exercises</a></div>
+<div class="small_text colored_text">Concepts tested: everything up to Exam 1</div>
+</p>
+
+
+<div class="overview_main_item overview_ruled_element">Programming Assignments</div>
+
+<p>
+<div><a href="http://15418.courses.cs.cmu.edu/spring2017/article/3">Assignment 1: Analyzing Parallel Program Performance on an Eight-Core CPU</a></div>
+</p>
+
+<p>
+<div><a href="http://15418.courses.cs.cmu.edu/spring2017/article/4">Assignment 2: A Simple CUDA Renderer</a></div>
+</p>
+
+<p>
+<div><a href="http://15418.courses.cs.cmu.edu/spring2017/article/7">Assignment 3: Processing Big Graphs on the Xeon Phi</a></div>
+</p>
+
+
+<p>&nbsp;</p>
+
+</div>
+
+
+
+<hr size="1">
+
+<div class="footer">
+     Copyright 2017 Carnegie Mellon University
+</div>
+
+
+</div>  <!-- end of content_container (defined in header.php) -->
+</div>  <!-- end main_container (defined in header.php) -->
+
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-37443044-5', 'auto');
+  ga('send', 'pageview');
+
+</script>
+
+
+</body>
+</html>
+
