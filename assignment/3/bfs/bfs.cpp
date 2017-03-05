@@ -13,7 +13,7 @@
 #define NOT_VISITED_MARKER -1
 #define CHUNK_SIZE_INIT 4096
 #define CHUNK_SIZE_FRONTIER 32
-#define CHUNK_SIZE_UNVISITED 4096
+#define CHUNK_SIZE_UNVISITED 1024
 // #define VERBOSE
 
 void vertex_set_clear(vertex_set* list) {
@@ -231,7 +231,7 @@ void bfs_bottom_up_step(Graph g, int* distances, int* new_distances,
     #pragma omp parallel
     {
         int local_frontier_count = 0;
-        #pragma omp for schedule(dynamic, CHUNK_SIZE_UNVISITED)
+        #pragma omp for schedule(dynamic, CHUNK_SIZE_UNVISITED) nowait
         for (int i = 1; i < num_nodes; i++) {
             if (incoming_size(g, i) == 0) {
                 continue;
@@ -293,7 +293,6 @@ void bfs_bottom_up(Graph graph, solution* sol) {
     int root_end_edge = graph->outgoing_starts[ROOT_NODE_ID + 1];
     for (int neighbor = root_start_edge; neighbor < root_end_edge; neighbor++) {
         int outgoing = graph->outgoing_edges[neighbor];
-        // printf("outgoing: %d\n", outgoing);
         distances[outgoing] = 1;
         frontier_count++;
     }
@@ -316,11 +315,14 @@ void bfs_bottom_up(Graph graph, solution* sol) {
         distances = new_distances;
         new_distances = swap_tmp;
     }
-
+#ifdef VERBOSE
     double start_time = CycleTimer::currentSeconds();
+#endif
     memcpy(sol->distances, new_distances, sizeof(int) * num_nodes);
+#ifdef VERBOSE
     double end_time = CycleTimer::currentSeconds();
     printf("duration: %.4f\n", end_time - start_time);
+#endif
 }
 
 void bfs_hybrid(Graph graph, solution* sol) {
@@ -328,4 +330,5 @@ void bfs_hybrid(Graph graph, solution* sol) {
     //
     // You will need to implement the "hybrid" BFS here as
     // described in the handout.
+
 }
