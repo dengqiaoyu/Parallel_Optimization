@@ -23,7 +23,7 @@ void pageRank(Graph g, double* solution, double damping, double convergence) {
     // precision scores are used to avoid underflow for large graphs
 
 
-    int chunk_size = 4096;
+    int chunk_size = 4096 + 1;
     int numNodes = num_nodes(g);
     double equal_prob = 1.0 / numNodes;
     #pragma omp parallel for schedule(static, chunk_size)
@@ -31,35 +31,9 @@ void pageRank(Graph g, double* solution, double damping, double convergence) {
         solution[i] = equal_prob;
     }
 
-    /* 418/618 Students: Implement the page rank algorithm here.  You
-       are expected to parallelize the algorithm using openMP.  Your
-       solution may need to allocate (and free) temporary arrays.
-
-       Basic page rank pseudocode:
-
-       // initialization: see example code above
-       score_old[vi] = 1/numNodes;
-
-       while (!converged) {
-
-         // compute score_new[vi] for all nodes vi:
-         score_new[vi] = sum over all nodes vj reachable from incoming edges
-                            { score_old[vj] / number of edges leaving vj  }
-         score_new[vi] = (damping * score_new[vi]) + (1.0-damping) / numNodes;
-
-         score_new[vi] += sum over all nodes vj with no outgoing edges
-                            { damping * score_old[vj] / numNodes }
-
-         // compute how much per-node scores have changed
-         // quit once algorithm has converged
-
-         global_diff = sum over all nodes vi { abs(score_new[vi] - score_old[vi]) };
-         converged = (global_diff < convergence)
-       }
-     */
     double sum_contri_zero_outgoing_old = 0.0;
     double sum_contri_zero_outgoing_new = 0.0;
-    #pragma omp parallel for reduction(+:sum_contri_zero_outgoing_new) schedule(dynamic, chunk_size)
+    #pragma omp parallel for reduction(+:sum_contri_zero_outgoing_new) schedule(static, chunk_size)
     for (int i = 0; i < numNodes; i++) {
         sum_contri_zero_outgoing_new += (outgoing_size(g, i) == 0 ? solution[i] / numNodes : 0);
     }
@@ -100,3 +74,30 @@ void pageRank(Graph g, double* solution, double damping, double convergence) {
     }
     free(contri_per_vertex);
 }
+
+/* 418/618 Students: Implement the page rank algorithm here.  You
+   are expected to parallelize the algorithm using openMP.  Your
+   solution may need to allocate (and free) temporary arrays.
+
+   Basic page rank pseudocode:
+
+   // initialization: see example code above
+   score_old[vi] = 1/numNodes;
+
+   while (!converged) {
+
+     // compute score_new[vi] for all nodes vi:
+     score_new[vi] = sum over all nodes vj reachable from incoming edges
+                        { score_old[vj] / number of edges leaving vj  }
+     score_new[vi] = (damping * score_new[vi]) + (1.0-damping) / numNodes;
+
+     score_new[vi] += sum over all nodes vj with no outgoing edges
+                        { damping * score_old[vj] / numNodes }
+
+     // compute how much per-node scores have changed
+     // quit once algorithm has converged
+
+     global_diff = sum over all nodes vi { abs(score_new[vi] - score_old[vi]) };
+     converged = (global_diff < convergence)
+   }
+ */
