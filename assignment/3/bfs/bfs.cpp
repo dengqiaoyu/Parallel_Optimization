@@ -14,7 +14,7 @@
 #define CHUNK_SIZE_INIT 4096
 #define CHUNK_SIZE_FRONTIER 32
 #define CHUNK_SIZE_UNVISITED 4096
-#define VERBOSE
+// #define VERBOSE
 
 void vertex_set_clear(vertex_set* list) {
     list->count = 0;
@@ -233,11 +233,11 @@ void bfs_bottom_up_step(Graph g, int* distances, int* new_distances,
         int local_frontier_count = 0;
         #pragma omp for schedule(dynamic, CHUNK_SIZE_UNVISITED)
         for (int i = 1; i < num_nodes; i++) {
-            if (distances[i] != NOT_VISITED_MARKER) {
+            if (incoming_size(g, i) == 0) {
+                continue;
+            } else if (distances[i] != NOT_VISITED_MARKER) {
                 if (new_distances[i] == NOT_VISITED_MARKER)
                     new_distances[i] = distances[i];
-                continue;
-            } else if (incoming_size(g, i) == 0) {
                 continue;
             }
 
@@ -317,7 +317,10 @@ void bfs_bottom_up(Graph graph, solution* sol) {
         new_distances = swap_tmp;
     }
 
+    double start_time = CycleTimer::currentSeconds();
     memcpy(sol->distances, new_distances, sizeof(int) * num_nodes);
+    double end_time = CycleTimer::currentSeconds();
+    printf("duration: %.4f\n", end_time - start_time);
 }
 
 void bfs_hybrid(Graph graph, solution* sol) {
