@@ -52,10 +52,10 @@ void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths, int
             frontier.get_remote_frontier_size(rank);
         int *remote_frontier = frontier.get_remote_frontier(rank);
         int *remote_depths = frontier.get_remote_depths(rank);
-        for (int i = 0; i < remote_frontier_size; i++) {
-            printf("rank: %d, remote_frontier: %d, remote_depths: %d, world_rank: %d, iteration: %d\n",
-                   rank, remote_frontier[i], remote_depths[i], world_rank, iteration);
-        }
+        // for (int i = 0; i < remote_frontier_size; i++) {
+        //     printf("rank: %d, remote_frontier: %d, remote_depths: %d, world_rank: %d, iteration: %d\n",
+        //            rank, remote_frontier[i], remote_depths[i], world_rank, iteration);
+        // }
 
         int* send_buf = NULL;
         send_buf = new int[remote_frontier_size * 2];
@@ -87,11 +87,11 @@ void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths, int
         for (int j = 0; j < num_vals; j += 2) {
             int v = recv_buf[j];
             int depth = recv_buf[j + 1];
-            printf("world_rank: %d, v: %d, depth: %d, iteration: %d\n", world_rank, v, depth, iteration);
+            // printf("world_rank: %d, v: %d, depth: %d, iteration: %d\n", world_rank, v, depth, iteration);
             if (g.get_vertex_owner_rank(v) != world_rank)
-                printf("vertex_owner_rank: %d, world_rank: %d, v: %d\n",
-                       g.get_vertex_owner_rank(v), world_rank, v);
-            assert(g.get_vertex_owner_rank(v) == world_rank);
+                // printf("vertex_owner_rank: %d, world_rank: %d, v: %d\n",
+                //        g.get_vertex_owner_rank(v), world_rank, v);
+                assert(g.get_vertex_owner_rank(v) == world_rank);
             int depths_idx = v - g.start_vertex;
             if (depths[depths_idx] == NOT_VISITED_MARKER) {
                 depths[depths_idx] = depth;
@@ -146,7 +146,7 @@ void bfs_step(DistGraph &g, int *depths,
                 if (g.get_vertex_owner_rank(outgoing) == g.world_rank) {
                     int outgoing_local_idx = outgoing - start_vertex;
                     if (depths[outgoing_local_idx] == NOT_VISITED_MARKER) {
-                        printf("world_rank: %d, iteration: %d, %d->%d\n", g.world_rank, iteration, node, outgoing);
+                        // printf("world_rank: %d, iteration: %d, %d->%d for itself\n", g.world_rank, iteration, node, outgoing);
                         #pragma omp critical
                         {
                             depths[outgoing_local_idx] =
@@ -156,11 +156,12 @@ void bfs_step(DistGraph &g, int *depths,
                         }
                     }
                 } else {
-                    printf("world_rank: %d, iteration: %d, %d->%d\n", g.world_rank, iteration, node, outgoing);
                     int rank = g.get_vertex_owner_rank(outgoing);
                     #pragma omp critical
                     {
-                        if (already_in_frontier[outgoing] != 0) {
+                        if (already_in_frontier[outgoing] == 0) {
+                            // printf("world_rank: %d, iteration: %d, %d->%d for rank %d\n",
+                            //        g.world_rank, iteration, node, outgoing, rank);
                             next_frontier.add(rank, outgoing,
                                               depths[node_local_idx] + 1);
                             already_in_frontier[outgoing] = 1;
@@ -206,10 +207,12 @@ void bfs(DistGraph &g, int *depths) {
     memset(already_in_frontier, 0, sizeof(int) * g.total_vertices());
     while (true) {
         iterarion++;
-        // printf("iterarion: %d\n", iterarion);
         bfs_step(g, depths, *cur_front, *next_front, already_in_frontier,
                  iterarion);
 
+        // int valid = check_validation(g, *next_front, iterarion);
+        // printf("%d\n", valid);
+        // exit(0);
         // // this is a global empty check, not a local frontier empty check.
         // // You will need to implement is_empty() in ../dist_graph.h
         if (next_front->is_empty(iterarion)) {
