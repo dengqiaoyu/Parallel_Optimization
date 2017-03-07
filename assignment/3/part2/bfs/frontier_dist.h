@@ -132,8 +132,13 @@ bool DistFrontier::is_empty(int iterate) {
     //        world_rank, iterate, get_remote_frontier_size(world_rank));
     MPI_Request* send_reqs = new MPI_Request[world_size];
     bool is_empty = true;
-    if (get_local_frontier_size() != 0)
-        is_empty = false;
+
+    for (int rank = 0; rank < world_size; rank++) {
+        if (get_remote_frontier_size(rank) != 0) {
+            is_empty = false;
+            break;
+        }
+    }
     int flag = (is_empty == true ? 1 : 0);
 
     for (int rank = 0; rank < world_size; rank++) {

@@ -8,6 +8,7 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <unistd.h>
 
 #include "graph_dist_ref.h"
 
@@ -57,6 +58,7 @@ class DistGraph {
     std::vector<Edge> out_edges;
     int **out_edge_dst;
     int *out_edge_dst_size;
+
 
     // Called after in_edges and out_edges are initialized. May be
     // useful for students to precompute/build additional structures
@@ -123,7 +125,7 @@ int DistGraph::total_vertices() {
  */
 inline
 void DistGraph::get_incoming_edges(const std::vector<std::vector<Edge>> &edge_scatter) {
-
+    printf("begin get_incoming_edges\n");
     /*
     // helpful reminders of MPI send and receive syntax
 
@@ -196,6 +198,7 @@ void DistGraph::get_incoming_edges(const std::vector<std::vector<Edge>> &edge_sc
 
     delete(send_reqs);
     delete(probe_status);
+    printf("end get_incoming_edges\n");
 }
 
 
@@ -361,6 +364,7 @@ void DistGraph::generate_graph_clustered() {
  */
 inline
 void DistGraph::setup() {
+    // printf("begin setup\n");
 
     int out_edge = 0;
     int in_edge = 1;
@@ -373,7 +377,9 @@ void DistGraph::setup() {
     out_edge_dst_size = (int *)malloc(vertices_per_process * sizeof(int));
     in_edge_src_size = (int *)malloc(vertices_per_process * sizeof(int));
 
+    // printf("begin create edge\n");
     for (int v = start_vertex; v <= end_vertex; v++) {
+        // printf("v: %d\n", v);
         int idx = get_index(v);
         out_edge_dst_size[idx] =
             get_vertex_edges_size(v, out_edge);
@@ -382,19 +388,30 @@ void DistGraph::setup() {
             get_vertex_edges_size(v, in_edge);
         in_edge_src[idx] = (int *)malloc(in_edge_src_size[idx] * sizeof(int));
     }
+    // printf("end create edge\n");
 
+    // printf("begin set\n");
     for (int v = start_vertex; v <= end_vertex; v++) {
         int idx = get_index(v);
         set_edges(v, out_edge_dst[idx], out_edge_dst_size[idx], out_edge);
         set_edges(v, in_edge_src[idx], in_edge_src_size[idx], in_edge);
     }
+    // printf("end set\n");
 
+
+    // if (world_rank == 1) {
+    //     int temp = 0;
+    //     while (temp < 10000) temp++;
+    // }
+    // if (world_rank == 1) {
+    //     sleep(2);
+    // }
     // printf("start_vertex: %d, end_vertex: %d\n", start_vertex, end_vertex);
     // for (int v = start_vertex; v <= end_vertex; v++) {
-    //     printf("world_rank: %d, %d, out_edge_dst_size: %d\n",
-    //            world_rank, v, out_edge_dst_size[v - start_vertex]);
-    //     printf("world_rank: %d, %d, in_edge_src_size: %d\n",
-    //            world_rank, v, in_edge_src_size[v - start_vertex]);
+    //     // printf("world_rank: %d, %d, out_edge_dst_size: %d\n",
+    //     //        world_rank, v, out_edge_dst_size[v - start_vertex]);
+    //     // printf("world_rank: %d, %d, in_edge_src_size: %d\n",
+    //     //        world_rank, v, in_edge_src_size[v - start_vertex]);
     //     for (int i = 0; i < out_edge_dst_size[v - start_vertex]; i++) {
     //         printf("world_rank: %d, %d->%d\n", world_rank, v,
     //                out_edge_dst[v - start_vertex][i]);
@@ -404,8 +421,14 @@ void DistGraph::setup() {
     //                in_edge_src[v - start_vertex][i]);
     //     }
     // }
+    // printf("\n\n");
+
+    // if (world_rank == 0) {
+    //     sleep(1);
+    // }
 
     // exit(1);
+    // printf("setup done!\n");
 }
 
 inline
