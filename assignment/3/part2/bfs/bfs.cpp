@@ -22,7 +22,6 @@
  */
 void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths) {
 
-
     // TODO 15-418/618 STUDENTS
     //
     // In this function, you should synchronize between all nodes you
@@ -34,7 +33,7 @@ void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths) {
 
     int world_size = g.world_size;
     int world_rank = g.world_rank;
-
+    // printf("process %d begin\n", world_rank);
     std::vector<int*> send_bufs;
     std::vector<int> send_idx;
     std::vector<int*> recv_bufs;
@@ -82,8 +81,11 @@ void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths) {
             int v = recv_buf[j];
             int depth = recv_buf[j + 1];
             assert(g.get_vertex_owner_rank(v) == world_rank);
-            if (depths[v] > depth) {
-                depths[v] = depth;
+            int depths_idx = v - g.start_vertex;
+            if (depths[depths_idx] > depth) {
+                // printf("depths[%d]: %d, depth: %d\n",
+                //        depths_idx, depths[depths_idx], depth);
+                depths[depths_idx] = depth;
                 Vertex *local_frontier = frontier.get_local_frontier();
                 int *local_depths = frontier.get_local_depths();
                 int local_depths_size = frontier.get_local_frontier_size();
@@ -96,9 +98,9 @@ void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths) {
                 }
                 assert(local_depths_idx < local_depths_size);
                 local_depths[local_depths_idx] = depth;
-            } else if (depths[v] == NOT_VISITED_MARKER) {
-                depths[v] = depth;
-                frontier.add(rank, v, depth);
+            } else if (depths[depths_idx] == NOT_VISITED_MARKER) {
+                depths[depths_idx] = depth;
+                frontier.add(world_rank, v, depth);
             }
         }
     }
@@ -115,6 +117,8 @@ void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths) {
 
     delete(send_reqs);
     delete(probe_status);
+
+    // printf("process %d end\n", world_rank);
 }
 
 /*
@@ -216,23 +220,47 @@ void bfs(DistGraph &g, int *depths) {
         depths[ROOT_NODE_ID - offset] = 0;
     }
 
+    int iterarion = 0;
     while (true) {
-
-
+        iterarion++;
         bfs_step(g, depths, *cur_front, *next_front);
 
-        // this is a global empty check, not a local frontier empty check.
-        // You will need to implement is_empty() in ../dist_graph.h
-        if (next_front->is_empty())
+        // if (iterarion == 5) {
+        //     printf("break in here\n");
+        //     break;
+        // }
+        // // this is a global empty check, not a local frontier empty check.
+        // // You will need to implement is_empty() in ../dist_graph.h
+        if (next_front->is_empty(iterarion)) {
+            printf("!!!This one is never executed world_rank: %d!!!\n", g.world_rank);
             break;
+        }
 
+        printf("g.world_rank: %d, line 238\n", g.world_rank);
         // exchange frontier information
         global_frontier_sync(g, *next_front, depths);
 
+        printf("g.world_rank: %d, line 242\n", g.world_rank);
         DistFrontier *temp = cur_front;
         cur_front = next_front;
         next_front = temp;
         next_front -> clear();
+
+        printf("@@@@@@@@@@@@@@@@@\n");
+        for (int i = 0; i < g.vertices_per_process; ++i ) {
+            printf("process %d iterateion: %d   0->%d:%d\n",
+                   g.world_rank, iterarion, i + g.start_vertex, depths[i]);
+        }
+        printf("@@@@@@@@@@@@@@@@@\n");
+        int ii = 0;
+        while (ii < 100) {
+            ii++;
+        }
     }
+    for (int i = 0; i < g.vertices_per_process; ++i ) {
+        printf("process %d    0->%d:%d\n",
+               g.world_rank, i + g.start_vertex, depths[i]);
+    }
+    printf("process %d exit normally\n", g.world_rank);
 }
 

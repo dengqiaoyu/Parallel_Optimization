@@ -388,6 +388,24 @@ void DistGraph::setup() {
         set_edges(v, out_edge_dst[idx], out_edge_dst_size[idx], out_edge);
         set_edges(v, in_edge_src[idx], in_edge_src_size[idx], in_edge);
     }
+
+    // printf("start_vertex: %d, end_vertex: %d\n", start_vertex, end_vertex);
+    // for (int v = start_vertex; v <= end_vertex; v++) {
+    //     printf("world_rank: %d, %d, out_edge_dst_size: %d\n",
+    //            world_rank, v, out_edge_dst_size[v - start_vertex]);
+    //     printf("world_rank: %d, %d, in_edge_src_size: %d\n",
+    //            world_rank, v, in_edge_src_size[v - start_vertex]);
+    //     for (int i = 0; i < out_edge_dst_size[v - start_vertex]; i++) {
+    //         printf("world_rank: %d, %d->%d\n", world_rank, v,
+    //                out_edge_dst[v - start_vertex][i]);
+    //     }
+    //     for (int i = 0; i < in_edge_src_size[v - start_vertex]; i++) {
+    //         printf("world_rank: %d, %d<-%d\n", world_rank, v,
+    //                in_edge_src[v - start_vertex][i]);
+    //     }
+    // }
+
+    // exit(1);
 }
 
 inline

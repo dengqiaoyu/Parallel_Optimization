@@ -44,7 +44,7 @@ class DistFrontier {
     int *get_remote_frontier(int remote_rank);
     int *get_remote_depths(int remote_rank);
 
-    bool is_empty();
+    bool is_empty(int iterate);
 };
 
 inline
@@ -125,15 +125,15 @@ int *DistFrontier::get_remote_depths(int remote_rank) {
 }
 
 inline
-bool DistFrontier::is_empty() {
+bool DistFrontier::is_empty(int iterate) {
     // 15-418/618 STUDENT TODO: Implement this function. Should return
     // true if the cluster-wide frontier is zero
+    // printf("process: %d iterattion: %d frontier_size: %d\n",
+    //        world_rank, iterate, get_remote_frontier_size(world_rank));
     MPI_Request* send_reqs = new MPI_Request[world_size];
-    bool is_empty = true;;
-    for (int rank = 0; rank < world_size; rank++) {
-        if (get_remote_frontier_size(rank) != 0)
-            is_empty = false;
-    }
+    bool is_empty = true;
+    if (get_local_frontier_size() != 0)
+        is_empty = false;
     int flag = (is_empty == true ? 1 : 0);
 
     for (int rank = 0; rank < world_size; rank++) {
