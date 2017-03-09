@@ -44,8 +44,16 @@ void pageRank(DistGraph &g, double* solution, double damping,
         double sum_nooutnode_pr = 0.0;
         double nooutnode_pr = 0.0;
 
+        #pragma omp parallel for schedule(dynamic, chunksize)
+        for (int j = 0; j < vertices_per_process; j++) {
+            if (g.out_edges_num[j + startVertex] == 0) {
+                nooutnode_pr += score_last[j + startVertex];
+            }
+        }
+
         MPI_Allreduce(&nooutnode_pr, &sum_nooutnode_pr, 1,
                       MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        sum_nooutnode_pr /= totalVertices;
 
         // * 1. Cal no-outgoing vertices pr value (Allreduce)
         #pragma omp parallel

@@ -9,6 +9,7 @@
 #include <cmath>
 #include <iostream>
 #include <unistd.h>
+#include <string.h>
 
 #include "graph_dist_ref.h"
 
