@@ -1,3 +1,7 @@
+/**
+ * @file bfs.cpp
+ * @brief this file contains BFS algorithm
+ */
 #include <cstring>
 #include <set>
 #include <iostream>
@@ -11,17 +15,20 @@
 
 #define CHUNK_SIZE_FRONTIER 4096
 
-#define FRONTIER_TAG 0
-#define EMPTY_TAG 1
+#define FRONTIER_TAG 0 /* message tag for adding frontier */
+#define EMPTY_TAG 1 /* message tag for empty confirm */
 
 int check_validation(DistGraph &g, DistFrontier &next_front, int iteration);
+
 /**
- *
- * global_frontier_sync--
- *
- * Takes a distributed graph, and a distributed frontier with each node containing
- * world_size independently produced new frontiers, and merges them such that each
- * node holds the subset of the global frontier containing local vertices.
+ * Takes a distributed graph, and a distributed frontier with each node
+ * containing world_size independently produced new frontiers, and merges them
+ * such that each node holds the subset of the global frontier containing local
+ * vertices.
+ * @param g         graph type
+ * @param frontier  local frontier
+ * @param depths    the distance to root node
+ * @param iteration the current iteration
  */
 void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths,
                           int iteration) {
@@ -33,8 +40,10 @@ void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths,
     std::vector<int*> recv_bufs;
 
     MPI_Request* send_reqs = new MPI_Request[world_size];
+    /* to get the size of array that will be received */
     MPI_Status* probe_status = new MPI_Status[world_size];
 
+    /* send every machine their new frontier information */
     for (int rank = 0; rank < world_size; rank++) {
         if (rank == world_rank)
             continue;
@@ -50,33 +59,40 @@ void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths,
             send_buf[2 * j] = remote_frontier[j];
             send_buf[2 * j + 1] = remote_depths[j];
         }
+        /* push into vector for future deleting */
         send_bufs.push_back(send_buf);
         send_idx.push_back(rank);
 
+        /* non blocking, needs MPI_wait to sync*/
         MPI_Isend(send_buf, remote_frontier_size * 2, MPI_INT, rank,
                   FRONTIER_TAG, MPI_COMM_WORLD, &send_reqs[rank]);
     }
 
+    /* receive new frontier from other machines */
     for (int rank = 0; rank < world_size; rank++) {
         if (rank == world_rank)
             continue;
         MPI_Status status;
+        /* get array size that will be received */
         MPI_Probe(rank, FRONTIER_TAG, MPI_COMM_WORLD, &probe_status[rank]);
         int num_vals = 0;
         MPI_Get_count(&probe_status[rank], MPI_INT, &num_vals);
 
+        /* for future delete */
         int* recv_buf = new int[num_vals];
         recv_bufs.push_back(recv_buf);
 
         MPI_Recv(recv_buf, num_vals, MPI_INT, probe_status[rank].MPI_SOURCE,
                  probe_status[rank].MPI_TAG, MPI_COMM_WORLD, &status);
 
+        /* add new node into local frontier */
         for (int j = 0; j < num_vals; j += 2) {
             int v = recv_buf[j];
             int depth = recv_buf[j + 1];
             if (g.get_vertex_owner_rank(v) != world_rank)
                 assert(g.get_vertex_owner_rank(v) == world_rank);
             int depths_idx = v - g.start_vertex;
+            /* If node has not been added into frontier */
             if (depths[depths_idx] == NOT_VISITED_MARKER) {
                 depths[depths_idx] = depth;
                 frontier.add(world_rank, v, depth);
@@ -84,6 +100,7 @@ void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths,
         }
     }
 
+    /* wait every machine to receive their message */
     for (size_t i = 0; i < send_bufs.size(); i++) {
         MPI_Status status;
         MPI_Wait(&send_reqs[send_idx[i]], &status);
@@ -98,16 +115,16 @@ void global_frontier_sync(DistGraph &g, DistFrontier &frontier, int *depths,
     delete(probe_status);
 }
 
-/*
- * bfs_step --
- *
+/**
  * Carry out one step of a distributed bfs
- *
- * depths: current state of depths array for local vertices
- * current_frontier/next_frontier: copies of the distributed frontier structure
- *
- * NOTE TO STUDENTS: We gave you this function as a stub.  Feel free
- * to change as you please (including the arguments)
+ * @param g                   graph type
+ * @param depths              current state of depths array for local vertices
+ * @param current_frontier    current copy of the distributed frontier
+ *                            structure
+ * @param next_frontier       new copy of the distributed frontier structure
+ * @param already_in_frontier array that indicate whether a node is already
+ *                            added into frontier
+ * @param iteration           the current iteration
  */
 void bfs_step(DistGraph &g, int *depths,
               DistFrontier &current_frontier,
@@ -125,6 +142,7 @@ void bfs_step(DistGraph &g, int *depths,
             int outgoing_edge_num = g.out_edge_dst_size[node_local_idx];
             for (int edge_idx = 0; edge_idx < outgoing_edge_num; edge_idx++) {
                 int outgoing = g.out_edge_dst[node_local_idx][edge_idx];
+                /* if node is in the local range */
                 if (g.get_vertex_owner_rank(outgoing) == g.world_rank) {
                     int outgoing_local_idx = outgoing - start_vertex;
                     if (depths[outgoing_local_idx] == NOT_VISITED_MARKER) {
@@ -137,9 +155,14 @@ void bfs_step(DistGraph &g, int *depths,
                         }
                     }
                 } else {
+                    /* if node is in other machine */
                     int rank = g.get_vertex_owner_rank(outgoing);
                     #pragma omp critical
                     {
+                        /**
+                         * fill already_in_frontier to avoid adding this node
+                         * again in the future
+                         */
                         if (already_in_frontier[outgoing] == 0) {
                             next_frontier.add(rank, outgoing,
                                               depths[node_local_idx] + 1);
@@ -159,6 +182,11 @@ void bfs_step(DistGraph &g, int *depths,
  *
  * Upon return, depths[i] should be the distance of the i'th local
  * vertex from the BFS root node
+ */
+/**
+ * Execute a distributed BFS on the distributed graph g
+ * @param g      graph type
+ * @param depths current state of depths array for local vertices
  */
 void bfs(DistGraph &g, int *depths) {
     DistFrontier current_frontier(g.vertices_per_process, g.world_size,

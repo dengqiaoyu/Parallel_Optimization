@@ -124,11 +124,17 @@ int *DistFrontier::get_remote_depths(int remote_rank) {
     return depths[remote_rank];
 }
 
+/**
+ * [DistFrontier::is_empty description]
+ * @param  iterate the current iteration, for debug using
+ * @return         true for covered, false for not ready converged
+ */
 inline
 bool DistFrontier::is_empty(int iterate) {
     MPI_Request* send_reqs = new MPI_Request[world_size];
     bool is_empty = true;
 
+    /* check if all the frontier in local has zero node */
     for (int rank = 0; rank < world_size; rank++) {
         if (get_remote_frontier_size(rank) != 0) {
             is_empty = false;
@@ -137,6 +143,10 @@ bool DistFrontier::is_empty(int iterate) {
     }
     int flag = (is_empty == true ? 1 : 0);
 
+    /**
+     * send check result to every machine in the network, if one of them does
+     * have non empty frontier, then we cannot stop
+     */
     for (int rank = 0; rank < world_size; rank++) {
         if (rank == world_rank)
             continue;

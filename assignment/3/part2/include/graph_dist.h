@@ -379,6 +379,7 @@ void DistGraph::setup() {
     out_edge_dst_size = (int *)calloc(vertices_per_process, sizeof(int));
     in_edge_src_size = (int *)calloc(vertices_per_process, sizeof(int));
 
+    /* get the edges size for every node in local */
     get_vertex_edges_size(out_edge_dst_size, out_edge);
     get_vertex_edges_size(in_edge_src_size, in_edge);
 
@@ -388,6 +389,7 @@ void DistGraph::setup() {
         in_edge_src[idx] = (int *)malloc(in_edge_src_size[idx] * sizeof(int));
     }
 
+    /* set local nodes' edges according to out_edge and in_edge */
     set_edges(out_edge_dst_size, out_edge_dst, in_edge_src_size, in_edge_src);
     out_edges_num.reserve(total_vertices());
     std::vector<int> out_edges_num_part(vertices_per_process, 0);
