@@ -1,75 +1,102 @@
+
 #include "page_rank.h"
+#include <vector>
+#include <omp.h>
+// #define DEBUG
+#define MASTER 0
+#define DEFAULT_TAG 0
+#define chunksize 1000
 
-/*
- * pageRank-- 
- *
- * Computes page rank on a distributed graph g
- * 
- * Per-vertex scores for all vertices *owned by this node* (not all
- * vertices in the graph) should be placed in `solution` upon
- * completion.
- */
-void pageRank(DistGraph &g, double* solution, double damping, double convergence) {
+/* Potential Bugs
+ * vector assignment, clear, from array -> vector
+ * MPI: send/rec working pattern
+*/
 
-    // TODO FOR 15-418/618 STUDENTS:
+void pageRank(DistGraph &g, double* solution, double damping,
+              double convergence) {
 
-    // Implement the distributed page rank algorithm here. This is
-    // very similar to what you implemnted in Part 1, except in this
-    // case, the graph g is distributed across cluster nodes.
-
-    // Each node in the cluster is only aware of the outgoing edge
-    // topology for the vertices it "owns".  The cluster nodes will
-    // need to coordinate to determine what information.
- 
-    // note: we give you starter code below to initialize scores for
-    // ALL VERTICES in the graph, but feel free to modify as desired.
-    // Keep in mind the `solution` array returned to the caller should
-    // only have scores for the local vertices
     int totalVertices = g.total_vertices();
-    double equal_prob = 1.0/totalVertices;
-
     int vertices_per_process = g.vertices_per_process;
+    int startVertex = g.start_vertex;
+    int endVertex = g.end_vertex + 1;
 
-    std::vector<double> score_curr(totalVertices);
-    std::vector<double> score_next(g.vertices_per_process);
+    int worldRank = g.world_rank;
+    std::vector<double> score_curr(totalVertices, 0.0);
+    std::vector<double> score_last(totalVertices, 0.0);
+    //update to zeros every loop
+    std::vector<double> score_next(vertices_per_process, 0.0);
+
+    int converged = 0;
+
+    double equal_prob = 1.0 / totalVertices;
 
     // initialize per-vertex scores
-    #pragma omp parallel for
-    for (Vertex i = 0; i < totalVertices; i++) {
+    // #pragma omp parallel for schedule(auto)
+    #pragma omp parallel for schedule(static, chunksize)
+    for (int i = 0; i < totalVertices; ++i) {
         score_curr[i] = equal_prob;
+        score_last[i] = equal_prob;
     }
-
-    bool converged = false;
-
-    /*
-
-      Repeating basic pagerank pseudocode here for your convenience
-      (same as for part 1 of this assignment)
 
     while (!converged) {
 
-        // compute score_new[vi] for all vertices belonging to this process
-        score_new[vi] = sum over all vertices vj reachable from incoming edges
-                          { score_old[vj] / number of edges leaving vj  }
-        score_new[vi] = (damping * score_new[vi]) + (1.0-damping) / totalVertices;
+        // Find all no-outgoing vertices and cal
+        double sum_nooutnode_pr = 0.0;
+        double nooutnode_pr = 0.0;
 
-        score_new[vi] += sum over all nodes vj with no outgoing edges
-                          { damping * score_old[vj] / totalVertices }
+        MPI_Allreduce(&nooutnode_pr, &sum_nooutnode_pr, 1,
+                      MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-        // compute how much per-node scores have changed
-        // quit once algorithm has converged
+        // * 1. Cal no-outgoing vertices pr value (Allreduce)
+        #pragma omp parallel
+        {
 
-        global_diff = sum over all vertices vi { abs(score_new[vi] - score_old[vi]) };
-        converged = (global_diff < convergence)
+            #pragma omp for schedule(static, chunksize)
+            for (int j = 0; j < vertices_per_process; j++) {
+                score_next[j] = 0.0;
+            }
+            // * 2. Cal score_next and broadcast (bcast)
+            #pragma omp for schedule(dynamic, chunksize/10)
+            for (int dst_idx = startVertex; dst_idx < endVertex; ++dst_idx) {
+                int esize = g.in_edge_src_size[dst_idx - startVertex];
+                for (int idx = 0; idx < esize; idx++) {
+                    int src = g.in_edge_src[dst_idx - startVertex][idx];
+                    // Edge edge = g.in_edges[j];
+                    score_next[dst_idx - startVertex] +=
+                        score_last[src] / g.out_edges_num[src];
+                }
+            }
+            double sum_part =
+                (sum_nooutnode_pr  * damping + (1.0 - damping))
+                / double(totalVertices);
 
-        // Note that here, some communication between all the nodes is necessary
-        // so that all nodes have the same copy of old scores before beginning the 
-        // next iteration. You should be careful to make sure that any data you send 
-        // is received before you delete or modify the buffers you are sending.
+            #pragma omp for schedule(static, chunksize)
+            for (int j = 0; j < vertices_per_process; j++) {
+                score_next[j] = score_next[j] * damping + sum_part;
+            }
+        }
 
+        MPI_Allgather(score_next.data(), vertices_per_process,
+                      MPI_DOUBLE, score_curr.data(), vertices_per_process,
+                      MPI_DOUBLE, MPI_COMM_WORLD);
+
+        double diff = 0.0;
+
+        if (worldRank == MASTER) {
+            #pragma omp parallel for reduction(+:diff) \
+            schedule(static, chunksize)
+            for (int i = 0; i < totalVertices; ++i) {
+                diff += fabs(score_last[i] - score_curr[i]);
+            }
+            converged = (diff < convergence);
+        }
+
+        MPI_Bcast(&converged, 1, MPI_INT, MASTER, MPI_COMM_WORLD);
+        if (!converged)  score_curr.swap(score_last);
     }
 
-    // Fill in solution with the scores of the vertices belonging to this node.
-
-    */
+    #pragma omp parallel for schedule(static, chunksize)
+    for (int j = 0; j < vertices_per_process; j++) {
+        solution[j] = score_curr[startVertex + j];
+    }
 }

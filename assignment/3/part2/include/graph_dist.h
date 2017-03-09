@@ -58,14 +58,16 @@ class DistGraph {
     std::vector<Edge> out_edges;
     int **out_edge_dst;
     int *out_edge_dst_size;
+    std::vector<int> out_edges_num;
 
 
     // Called after in_edges and out_edges are initialized. May be
     // useful for students to precompute/build additional structures
     void setup();
   private:
-    int get_vertex_edges_size(int v, int mode);
-    void set_edges(int v, int *out_edge_dst_array, int len, int mode);
+    void get_vertex_edges_size(int *size_array, int mode);
+    void set_edges(int *out_edge_dst_size, int **out_edge_dst,
+                   int *in_edge_src_size, int **in_edge_src);
     int get_index(int v);
 
 };
@@ -125,7 +127,7 @@ int DistGraph::total_vertices() {
  */
 inline
 void DistGraph::get_incoming_edges(const std::vector<std::vector<Edge>> &edge_scatter) {
-    printf("begin get_incoming_edges\n");
+    // printf("begin get_incoming_edges\n");
     /*
     // helpful reminders of MPI send and receive syntax
 
@@ -198,7 +200,7 @@ void DistGraph::get_incoming_edges(const std::vector<std::vector<Edge>> &edge_sc
 
     delete(send_reqs);
     delete(probe_status);
-    printf("end get_incoming_edges\n");
+    // printf("end get_incoming_edges\n");
 }
 
 
@@ -374,92 +376,59 @@ void DistGraph::setup() {
     // topology, or put the graph in the desired form for future computation.
     out_edge_dst = (int **)malloc(vertices_per_process * sizeof(int *));
     in_edge_src = (int **)malloc(vertices_per_process * sizeof(int *));
-    out_edge_dst_size = (int *)malloc(vertices_per_process * sizeof(int));
-    in_edge_src_size = (int *)malloc(vertices_per_process * sizeof(int));
+    out_edge_dst_size = (int *)calloc(vertices_per_process, sizeof(int));
+    in_edge_src_size = (int *)calloc(vertices_per_process, sizeof(int));
 
-    // printf("begin create edge\n");
+    get_vertex_edges_size(out_edge_dst_size, out_edge);
+    get_vertex_edges_size(in_edge_src_size, in_edge);
+
     for (int v = start_vertex; v <= end_vertex; v++) {
-        // printf("v: %d\n", v);
-        int idx = get_index(v);
-        out_edge_dst_size[idx] =
-            get_vertex_edges_size(v, out_edge);
+        int idx = v - start_vertex;
         out_edge_dst[idx] = (int *)malloc(out_edge_dst_size[idx] * sizeof(int));
-        in_edge_src_size[idx] =
-            get_vertex_edges_size(v, in_edge);
         in_edge_src[idx] = (int *)malloc(in_edge_src_size[idx] * sizeof(int));
     }
-    // printf("end create edge\n");
 
-    // printf("begin set\n");
-    for (int v = start_vertex; v <= end_vertex; v++) {
-        int idx = get_index(v);
-        set_edges(v, out_edge_dst[idx], out_edge_dst_size[idx], out_edge);
-        set_edges(v, in_edge_src[idx], in_edge_src_size[idx], in_edge);
+    set_edges(out_edge_dst_size, out_edge_dst, in_edge_src_size, in_edge_src);
+    out_edges_num.reserve(total_vertices());
+    std::vector<int> out_edges_num_part(vertices_per_process, 0);
+
+    for (auto &edge : out_edges) {
+        out_edges_num_part[edge.src - start_vertex] += 1;
     }
-    // printf("end set\n");
 
+    MPI_Allgather(out_edges_num_part.data(), vertices_per_process,
+                  MPI_INT, out_edges_num.data(), vertices_per_process,
+                  MPI_INT, MPI_COMM_WORLD);
 
-    // if (world_rank == 1) {
-    //     int temp = 0;
-    //     while (temp < 10000) temp++;
-    // }
-    // if (world_rank == 1) {
-    //     sleep(2);
-    // }
-    // printf("start_vertex: %d, end_vertex: %d\n", start_vertex, end_vertex);
-    // for (int v = start_vertex; v <= end_vertex; v++) {
-    //     // printf("world_rank: %d, %d, out_edge_dst_size: %d\n",
-    //     //        world_rank, v, out_edge_dst_size[v - start_vertex]);
-    //     // printf("world_rank: %d, %d, in_edge_src_size: %d\n",
-    //     //        world_rank, v, in_edge_src_size[v - start_vertex]);
-    //     for (int i = 0; i < out_edge_dst_size[v - start_vertex]; i++) {
-    //         printf("world_rank: %d, %d->%d\n", world_rank, v,
-    //                out_edge_dst[v - start_vertex][i]);
-    //     }
-    //     for (int i = 0; i < in_edge_src_size[v - start_vertex]; i++) {
-    //         printf("world_rank: %d, %d<-%d\n", world_rank, v,
-    //                in_edge_src[v - start_vertex][i]);
-    //     }
-    // }
-    // printf("\n\n");
-
-    // if (world_rank == 0) {
-    //     sleep(1);
-    // }
-
-    // exit(1);
-    // printf("setup done!\n");
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 inline
-int DistGraph::get_vertex_edges_size(int v, int mode) {
-    int edge_cnt = 0;
-    if (mode == 0) {
-        for (auto &e : out_edges)
-            if (e.src == v) edge_cnt++;
-    } else if (mode == 1) {
-        for (auto &e : in_edges)
-            if (e.dest == v) edge_cnt++;
-    }
-
-    return edge_cnt;
-}
-
-inline
-void DistGraph::set_edges(int v, int *edge_array, int len, int mode) {
-    int size = 0;
+void DistGraph::get_vertex_edges_size(int *size_array, int mode) {
     if (mode == 0) {
         for (auto &e : out_edges) {
-            assert(size <= len);
-            if (e.src == v)
-                edge_array[size++] = e.dest;
+            // printf("%d->%d\n", e.src, e.dest);
+            size_array[e.src - start_vertex]++;
         }
-    } else if (mode == 1) {
+    } else {
         for (auto &e : in_edges) {
-            assert(size <= len);
-            if (e.dest == v)
-                edge_array[size++] = e.src;
+            size_array[e.dest - start_vertex]++;
         }
+    }
+}
+
+inline
+void DistGraph::set_edges(int *out_edge_dst_size, int **out_edge_dst,
+                          int *in_edge_src_size, int **in_edge_src) {
+    int *size_idx_array = (int *)calloc(vertices_per_process, sizeof(int));
+    for (auto &e : out_edges) {
+        int idx = e.src - start_vertex;
+        out_edge_dst[idx][size_idx_array[idx]++] = e.dest;
+    }
+    memset(size_idx_array, 0, vertices_per_process * sizeof(int));
+    for (auto &e : in_edges) {
+        int idx = e.dest - start_vertex;
+        in_edge_src[idx][size_idx_array[idx]++] = e.src;
     }
 }
 

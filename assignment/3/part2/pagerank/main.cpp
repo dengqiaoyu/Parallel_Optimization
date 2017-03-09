@@ -201,6 +201,19 @@ int main(int argc, char** argv) {
         std::cout << "Incorrect\n";
       }
 
+      if (world_rank == MASTER) {
+        double score = !failed ? 5 : 0;
+        double ratio = (double)best_time_ref/(best_time_sol + 1e-12);
+        if (ratio > 0.4 && !failed) {
+            if (ratio > 0.8) {
+                score += 15;
+            } else {
+                score += ((ratio - 0.4)/0.4) * 15;
+            }
+        }
+        std::cout << "Score: " << score << std::endl;
+      }
+
       delete ref_scores;
       delete sol_scores;
 

@@ -91,7 +91,6 @@ void bfs_top_down(Graph graph, solution* sol) {
     sol->distances[ROOT_NODE_ID] = 0;
 
     while (frontier->count != 0) {
-        // printf("count: %d\n", frontier->count);
 #ifdef VERBOSE
         double start_time = CycleTimer::currentSeconds();
 #endif
@@ -151,17 +150,6 @@ void bfs_bottom_up_step(Graph g, int* distances, int* new_distances,
 }
 
 void bfs_bottom_up(Graph graph, solution* sol) {
-    // 15-418/618 students:
-    //
-    // You will need to implement the "bottom up" BFS here as
-    // described in the handout.
-    //
-    // As a result of your code's execution, sol.distances should be
-    // correctly populated for all nodes in the graph.
-    //
-    // As was done in the top-down case, you may wish to organize your
-    // code by creating subroutine bottom_up_step() that is called in
-    // each step of the BFS process.
 
     int frontier_count = 0;
     int num_nodes = graph->num_nodes;
@@ -277,7 +265,9 @@ void bfs_hybrid_step(Graph g,
                                ? g->num_edges
                                : g->outgoing_starts[node + 1];
 
-                for (int neighbor = start_edge; neighbor < end_edge; neighbor++) {
+                for (int neighbor = start_edge;
+                        neighbor < end_edge;
+                        neighbor++) {
                     int outgoing = g->outgoing_edges[neighbor];
                     if (distances[outgoing] == NOT_VISITED_MARKER) {
                         distances[outgoing] = distances[node] + 1;
@@ -306,10 +296,6 @@ void bfs_hybrid_step(Graph g,
 }
 
 void bfs_hybrid(Graph graph, solution* sol) {
-    // 15-418/618 students:
-    //
-    // You will need to implement the "hybrid" BFS here as
-    // described in the handout.
 
     vertex_set list1;
     vertex_set list2;
@@ -338,7 +324,8 @@ void bfs_hybrid(Graph graph, solution* sol) {
                         distances, new_distances);
 #ifdef VERBOSE
         double end_time = CycleTimer::currentSeconds();
-        printf("frontier=%-10d %.4f sec\n", frontier->count, end_time - start_time);
+        printf("frontier=%-10d %.4f sec\n",
+               frontier->count, end_time - start_time);
 #endif
         int *swap_tmp1 = distances;
         distances = new_distances;
