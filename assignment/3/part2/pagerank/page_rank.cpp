@@ -5,7 +5,7 @@
 // #define DEBUG
 #define MASTER 0
 #define DEFAULT_TAG 0
-#define chunksize 1000
+#define chunksize 100
 
 /* Potential Bugs
  * vector assignment, clear, from array -> vector
@@ -30,12 +30,29 @@ void pageRank(DistGraph &g, double* solution, double damping,
 
     double equal_prob = 1.0 / totalVertices;
 
+    int nooutnode_end = 0;
+    int* nooutnodes;
+    nooutnodes = (int*)malloc(sizeof(int) * vertices_per_process);
+
+
     // initialize per-vertex scores
     // #pragma omp parallel for schedule(auto)
-    #pragma omp parallel for schedule(static, chunksize)
-    for (int i = 0; i < totalVertices; ++i) {
-        score_curr[i] = equal_prob;
-        score_last[i] = equal_prob;
+    #pragma omp parallel
+    {
+        #pragma omp for schedule(static, chunksize) nowait
+        for (int i = 0; i < totalVertices; ++i) {
+            score_curr[i] = equal_prob;
+            score_last[i] = equal_prob;
+        }
+
+        // [bug] maybe
+        #pragma omp for schedule(dynamic, chunksize)
+        for (int i = 0; i < vertices_per_process; ++i) {
+            if (g.out_edges_num[i + startVertex] == 0) {
+                nooutnodes[nooutnode_end] = i;
+                nooutnode_end ++;
+            }
+        }
     }
 
     while (!converged) {
@@ -44,11 +61,10 @@ void pageRank(DistGraph &g, double* solution, double damping,
         double sum_nooutnode_pr = 0.0;
         double nooutnode_pr = 0.0;
 
+        // [bug] maybe
         #pragma omp parallel for schedule(dynamic, chunksize)
-        for (int j = 0; j < vertices_per_process; j++) {
-            if (g.out_edges_num[j + startVertex] == 0) {
-                nooutnode_pr += score_last[j + startVertex];
-            }
+        for (int j = 0; j < nooutnode_end; j++) {
+            nooutnode_pr += score_last[nooutnodes[j] + startVertex];
         }
 
         MPI_Allreduce(&nooutnode_pr, &sum_nooutnode_pr, 1,
