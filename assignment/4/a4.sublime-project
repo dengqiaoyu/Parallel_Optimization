@@ -1,0 +1,26 @@
+{
+    "folders":
+    [
+        {
+            "path": "."
+        }
+    ],
+    "SublimeLinter":
+    {
+        "linters":
+        {
+            "clang":
+            {
+                "extra_flags": "",
+                "include_dirs":
+                [
+                    "$project_folder/",
+                    "$project_folder/src/",
+                    "$project_folder/src/asst4include",
+                    "$project_folder/src/asst4include/server",
+                    "$project_folder/src/asst4include/tools"
+                ]
+            }
+        }
+    }
+}
