@@ -39,6 +39,25 @@ typedef struct fast_queue {
     WorkQueue<Request_msg> projectidea_queue;
 } fast_queue_t;
 
+int fifo_queue_init(fifo_queue_t *fifo_queue);
+void fifo_queue_put(fifo_queue_t *fifo_queue,
+                    const Request_msg& req,
+                    int req_type);
+int fifo_queue_get(fifo_queue_t *fifo_queue, fifo_queue_item_t &item);
+
+int fast_queue_init(fast_queue_t *fast_queue);
+void fast_queue_put(fast_queue_t *fast_queue,
+                    const Request_msg& req,
+                    int req_type);
+int fast_queue_get(fast_queue_t *fast_queue,
+                   Request_msg& req,
+                   int req_type,
+                   int wait_if_zero,
+                   pthread_cond_t *cond);
+
 int sche_queue_init(sche_queue_t *sche_queue);
+int sche_queue_get(sche_queue_t *sche_queue,
+                   Request_msg& req,
+                   fifo_queue_t *fifo_queue);
 
 #endif

@@ -4,8 +4,13 @@
 #include <pthread.h>
 
 // TODO remember to remove it
-void pthread_mutex_lock(pthread_mutex_t mutex, void *ptr);
-void pthread_mutex_unlock(pthread_mutex_t mutex, void *ptr);
+void pthread_mutex_lock(pthread_mutex_t *mutex, void *ptr);
+void pthread_mutex_unlock(pthread_mutex_t *mutex, void *ptr);
+
+/* internal functions */
+fifo_queue_item_t create_fifo_queue_item(int complexity,
+        const Request_msg& req);
+int fill_sche_queue(sche_queue_t *sche_queue, fifo_queue_t *fifo_queue);
 
 int fifo_queue_init(fifo_queue_t *fifo_queue) {
     fifo_queue->item_cnt = 0;
@@ -62,65 +67,74 @@ void fifo_queue_put(fifo_queue_t *fifo_queue,
         break;
     }
     fifo_queue_item_t fifo_queue_item = create_fifo_queue_item(complexity, req);
-    pthread_mutex_lock(fifo_queue->fifo_lock, NULL);
+    pthread_mutex_lock(&fifo_queue->fifo_lock, NULL);
     fifo_queue->queue.put_work(fifo_queue_item);
     fifo_queue->item_cnt++;
-    pthread_mutex_unlock(fifo_queue->fifo_lock, NULL);
+    pthread_mutex_unlock(&fifo_queue->fifo_lock, NULL);
 }
 
 int fifo_queue_get(fifo_queue_t *fifo_queue, fifo_queue_item_t &item) {
-    pthread_mutex_lock(fifo_queue->fifo_lock, NULL);
+    pthread_mutex_lock(&fifo_queue->fifo_lock, NULL);
     if (fifo_queue->item_cnt == 0) {
-        pthread_mutex_unlock(fifo_queue->fifo_lock, NULL);
+        pthread_mutex_unlock(&fifo_queue->fifo_lock, NULL);
         return 0;
     }
     fifo_queue->item_cnt--;
     item = fifo_queue->queue.get_work();
-    pthread_mutex_unlock(fifo_queue->fifo_lock, NULL);
+    pthread_mutex_unlock(&fifo_queue->fifo_lock, NULL);
     return 1;
 }
 
 void fast_queue_put(fast_queue_t *fast_queue,
-                    int req_type,
-                    const Request_msg& req) {
+                    const Request_msg& req,
+                    int req_type) {
     switch (req_type) {
     case PROJECTIDEA:
         fast_queue->projectidea_queue.put_work(req);
-        pthread_mutex_lock(fast_queue->projectidea_mutex, NULL);
+        pthread_mutex_lock(&fast_queue->projectidea_mutex, NULL);
         fast_queue->projectidea_req_cnt++;
-        pthread_mutex_unlock(fast_queue->projectidea_mutex, NULL);
+        pthread_mutex_unlock(&fast_queue->projectidea_mutex, NULL);
         break;
     case TELLMENOW:
         fast_queue->tellmenow_queue.put_work(req);
-        pthread_mutex_lock(fast_queue->tellmenow_mutex, NULL);
+        pthread_mutex_lock(&fast_queue->tellmenow_mutex, NULL);
         fast_queue->tellmenow_req_cnt++;
-        pthread_mutex_unlock(fast_queue->tellmenow_mutex, NULL);
+        pthread_mutex_unlock(&fast_queue->tellmenow_mutex, NULL);
         break;
     default:
         break;
     }
 }
 
-int fast_queue_get(fast_queue_t *fast_queue, int req_type, Request_msg& req) {
+int fast_queue_get(fast_queue_t *fast_queue,
+                   Request_msg& req,
+                   int req_type,
+                   int& wait_if_zero,
+                   pthread_cond_t *cond) {
     switch (req_type) {
     case PROJECTIDEA:
-        pthread_mutex_lock(fast_queue->projectidea_mutex, NULL);
+        pthread_mutex_lock(&fast_queue->projectidea_mutex, NULL);
         if (fast_queue->projectidea_req_cnt == 0) {
-            pthread_mutex_unlock(fast_queue->projectidea_mutex, NULL);
+            pthread_mutex_unlock(&fast_queue->projectidea_mutex, NULL);
             return 0;
         }
         fast_queue->projectidea_req_cnt--;
-        pthread_mutex_unlock(fast_queue->projectidea_mutex, NULL);
+        pthread_mutex_unlock(&fast_queue->projectidea_mutex, NULL);
         req = fast_queue->projectidea_queue.get_work();
         break;
     case TELLMENOW:
-        pthread_mutex_lock(fast_queue->tellmenow_mutex, NULL);
-        if (fast_queue->tellmenow_req_cnt == 0) {
-            pthread_mutex_unlock(fast_queue->tellmenow_mutex, NULL);
-            return 0;
+        pthread_mutex_lock(&fast_queue->tellmenow_mutex, NULL);
+        while (fast_queue->tellmenow_req_cnt == 0) {
+            if (wait_if_zero) {
+                pthread_cond_wait(cond, &fast_queue->tellmenow_mutex);
+                wait_if_zero = 0;
+            } else {
+                pthread_mutex_unlock(&fast_queue->tellmenow_mutex, NULL);
+                return 0;
+            }
         }
         fast_queue->tellmenow_req_cnt--;
-        pthread_mutex_unlock(fast_queue->tellmenow_mutex, NULL);
+        pthread_mutex_unlock(&fast_queue->tellmenow_mutex, NULL);
         req = fast_queue->tellmenow_queue.get_work();
         break;
     default:
@@ -158,35 +172,35 @@ int fill_sche_queue(sche_queue_t *sche_queue, fifo_queue_t *fifo_queue) {
         sche_queue->queue.put_work(fifo_array[min_idx].req);
         is_taken[min_idx] = 1;
     }
-    pthread_mutex_lock(sche_queue->updated_lock, NULL);
+    pthread_mutex_lock(&sche_queue->updated_lock, NULL);
     sche_queue->item_cnt += (input_len - 1);
-    pthread_mutex_unlock(sche_queue->updated_lock, NULL);
+    pthread_mutex_unlock(&sche_queue->updated_lock, NULL);
     return 1;
 }
 
 int sche_queue_get(sche_queue_t *sche_queue,
                    Request_msg& req,
                    fifo_queue_t *fifo_queue) {
-    pthread_mutex_lock(sche_queue->sche_lock, NULL);
+    pthread_mutex_lock(&sche_queue->sche_lock, NULL);
     if (sche_queue->item_cnt == 0) {
-        pthread_mutex_lock(sche_queue->updated_lock, NULL);
+        pthread_mutex_lock(&sche_queue->updated_lock, NULL);
         if (sche_queue->if_being_updated == 1) {
-            pthread_mutex_unlock(sche_queue->updated_lock, NULL);
-            pthread_mutex_unlock(sche_queue->sche_lock, NULL);
+            pthread_mutex_unlock(&sche_queue->updated_lock, NULL);
+            pthread_mutex_unlock(&sche_queue->sche_lock, NULL);
             return 0;
         } else {
             sche_queue->if_being_updated = 1;
-            pthread_mutex_unlock(sche_queue->updated_lock, NULL);
-            pthread_mutex_unlock(sche_queue->sche_lock, NULL);
+            pthread_mutex_unlock(&sche_queue->updated_lock, NULL);
+            pthread_mutex_unlock(&sche_queue->sche_lock, NULL);
             int ret = fill_sche_queue(sche_queue, fifo_queue);
-            pthread_mutex_lock(sche_queue->updated_lock, NULL);
+            pthread_mutex_lock(&sche_queue->updated_lock, NULL);
             sche_queue->if_being_updated = 0;
-            pthread_mutex_unlock(sche_queue->updated_lock, NULL);
+            pthread_mutex_unlock(&sche_queue->updated_lock, NULL);
             if (ret == 0) return 0;
         }
     } else {
         sche_queue->item_cnt--;
-        pthread_mutex_unlock(sche_queue->sche_lock, NULL);
+        pthread_mutex_unlock(&sche_queue->sche_lock, NULL);
     }
     req = sche_queue->queue.get_work();
     return 1;
