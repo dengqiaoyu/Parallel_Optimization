@@ -17,8 +17,8 @@
 #define MAX_RUNNING_PROJECTIDEA 2
 
 // TODO remember to remove it
-void pthread_mutex_lock(pthread_mutex_t *mutex, void *ptr);
-void pthread_mutex_unlock(pthread_mutex_t *mutex, void *ptr);
+// void pthread_mutex_lock(pthread_mutex_t *mutex, void *ptr);
+// void pthread_mutex_unlock(pthread_mutex_t *mutex, void *ptr);
 
 typedef struct wstate {
     fifo_queue_t fifo_queue;

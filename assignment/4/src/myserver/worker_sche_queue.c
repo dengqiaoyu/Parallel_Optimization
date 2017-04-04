@@ -4,8 +4,8 @@
 #include <pthread.h>
 
 // TODO remember to remove it
-void pthread_mutex_lock(pthread_mutex_t *mutex, void *ptr);
-void pthread_mutex_unlock(pthread_mutex_t *mutex, void *ptr);
+// void pthread_mutex_lock(pthread_mutex_t *mutex, void *ptr);
+// void pthread_mutex_unlock(pthread_mutex_t *mutex, void *ptr);
 
 /* internal functions */
 fifo_queue_item_t create_fifo_queue_item(int complexity,

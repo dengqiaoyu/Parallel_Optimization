@@ -11,9 +11,11 @@
 #include "server/worker.h"
 #include "tools/work_queue.h"
 #include "request_type_def.h"
+#include "lru_cache.h"
 
 #define MAX_WORKERS 8
 #define COMPPRI_NUM 4
+#define MAX_CACHE_SIZE 100000
 
 typedef struct comppri_item {
     int params[COMPPRI_NUM];
@@ -50,6 +52,7 @@ static struct Master_state {
     int num_workers;
     std::map<int, client_request_item_t> response_client_map;
     std::map<int, comppri_item_t> comppri_map;
+    lru_cache_t lru_cache;
 } mstate;
 
 void handle_compareprimes_req(Client_handle client_handle,
@@ -69,6 +72,7 @@ void master_node_init(int max_workers, int& tick_period) {
     tick_period = 5;
     mstate.max_num_workers = max_workers;
     mstate.next_request_tag = 0;
+    cache_init(mstate.lru_cache, MAX_CACHE_SIZE);
 
     for (int i = 0; i < MAX_WORKERS; i++) {
         mstate.my_worker[i].worker_tag = 0;
@@ -142,6 +146,8 @@ void handle_worker_response(Worker_handle worker_handle, const Response_msg& res
                 counter_primes_n;
     } else mstate.my_worker[worker_idx].num_request_each_type[request_type]--;
     mstate.response_client_map.erase(request_tag);
+    std::string req_desp = client_request_item.client_req.get_request_string();
+    cache_put(mstate.lru_cache, req_desp, resp);
     send_client_response(client_request_item.client_handle, resp);
 }
 
@@ -181,7 +187,10 @@ void handle_comppri_response(Worker_handle worker_handle,
             resp_comppri.set_response("There are more primes in first range.");
         else
             resp_comppri.set_response("There are more primes in second range.");
-        send_client_response(client_request_item.client_handle, resp);
+        std::string req_desp =
+            client_request_item.client_req.get_request_string();
+        cache_put(mstate.lru_cache, req_desp, resp_comppri);
+        send_client_response(client_request_item.client_handle, resp_comppri);
         mstate.comppri_map.erase(main_tag);
     }
     mstate.response_client_map.erase(request_tag);
@@ -194,6 +203,12 @@ void handle_client_request(Client_handle client_handle, const Request_msg& clien
     // You can assume that traces end with this special message.  It
     // exists because it might be useful for debugging to dump
     // information about the entire run here: statistics, etc.
+    Response_msg cached_resp;
+    std::string cached_req_desp = client_req.get_request_string();
+    if (cache_get(mstate.lru_cache, cached_req_desp, cached_resp)) {
+        send_client_response(client_handle, cached_resp);
+        return;
+    }
     if (client_req.get_arg("cmd") == "lastrequest") {
         Response_msg resp(0);
         resp.set_response("ack");
@@ -208,7 +223,6 @@ void handle_client_request(Client_handle client_handle, const Request_msg& clien
     client_request_item_t client_request_item;
     client_request_item.client_handle = client_handle;
     client_request_item.client_req = client_req;
-
 
     int worker_idx = 0;
     if (client_req.get_arg("cmd").compare("wisdom418") == 0) {
@@ -225,9 +239,6 @@ void handle_client_request(Client_handle client_handle, const Request_msg& clien
         worker_idx = get_next_worker_idx_counterprimes(n);
         client_request_item.request_type = COUNTERPRIMES;
         client_request_item.counter_primes_n = n;
-    } else if (client_req.get_arg("cmd").compare("compareprimes") == 0) {
-        worker_idx = get_next_worker_idx(COMPAREPRIMES);
-        client_request_item.request_type = COMPAREPRIMES;
     } else {
         Response_msg resp(0);
         resp.set_response("Oh no! This type of request is not supported by server");
@@ -241,8 +252,8 @@ void handle_client_request(Client_handle client_handle, const Request_msg& clien
     send_request_to_worker(mstate.my_worker[worker_idx].worker, worker_req);
 }
 
-void handle_compareprimes_req(Client_handle client_handle,
-                              const Request_msg& client_req) {
+void handle_compareprimes_req(Client_handle &client_handle,
+                              const Request_msg &client_req) {
     int main_tag = mstate.next_request_tag++;
     int req_tag[COMPPRI_NUM];
     client_request_item_t clt_req_item[COMPPRI_NUM];
@@ -252,28 +263,61 @@ void handle_compareprimes_req(Client_handle client_handle,
     comppri_item.params[2] = atoi(client_req.get_arg("n3").c_str());
     comppri_item.params[3] = atoi(client_req.get_arg("n4").c_str());
 
+    int if_cached[COMPPRI_NUM];
+    int cnt_cached[COMPPRI_NUM];
     for (int i = 0; i < COMPPRI_NUM; i++) {
+        Request_msg dummy_req(0);
+        Response_msg dummy_resp(0);
+        create_computeprimes_req(dummy_req, comppri_item.params[i]);
+        std::string req_desp = dummy_req.get_request_string();
+        if_cached[i] = cache_get(mstate.lru_cache, req_desp, dummy_resp);
+        cnt_cached[i] = atoi(dummy_resp.get_response().c_str());
+    }
+
+
+    for (int i = 0; i < COMPPRI_NUM; i++) {
+        if (if_cached[i]) continue;
         req_tag[i] = mstate.next_request_tag++;
         clt_req_item[i].client_handle = client_handle;
         clt_req_item[i].client_req = client_req;
+        clt_req_item[i].counter_primes_n = comppri_item.params[i];
+        clt_req_item[i].request_type = COMPAREPRIMES;
         clt_req_item[i].worker_idx =
             get_next_worker_idx_counterprimes(comppri_item.params[i]);
-        clt_req_item[i].request_type = COMPAREPRIMES;
-        clt_req_item[i].counter_primes_n = comppri_item.params[i];
         clt_req_item[i].idx_if_compppri = main_tag;
     }
 
-    for (int i = 0; i < COMPPRI_NUM; i++)
-        comppri_item.counts[i] = -1;
-
-    mstate.comppri_map[main_tag] = comppri_item;
+    int if_all_cached = 1;
     for (int i = 0; i < COMPPRI_NUM; i++) {
-        mstate.response_client_map[req_tag[i]] = clt_req_item[i];
-        Request_msg req_created(0);
-        create_computeprimes_req(req_created, comppri_item.params[i]);
-        Request_msg worker_req(req_tag[i], req_created);
-        send_request_to_worker(mstate.my_worker[clt_req_item[i].worker_idx].worker,
-                               worker_req);
+        if (if_cached[i])
+            comppri_item.counts[i] = cnt_cached[i];
+        else {
+            if_all_cached = 0;
+            comppri_item.counts[i] = -1;
+        }
+    }
+
+    if (if_all_cached) {
+        Response_msg resp_comppri;
+        if (comppri_item.counts[1] - comppri_item.counts[0] > \
+                comppri_item.counts[3] - comppri_item.counts[2])
+            resp_comppri.set_response("There are more primes in first range.");
+        else
+            resp_comppri.set_response("There are more primes in second range.");
+        std::string req_desp = client_req.get_request_string();
+        cache_put(mstate.lru_cache, req_desp, resp_comppri);
+        send_client_response(client_handle, resp_comppri);
+    } else {
+        mstate.comppri_map[main_tag] = comppri_item;
+        for (int i = 0; i < COMPPRI_NUM; i++) {
+            if (if_cached[i]) continue;
+            Request_msg req_created(0);
+            create_computeprimes_req(req_created, comppri_item.params[i]);
+            Request_msg worker_req(req_tag[i], req_created);
+            send_request_to_worker(mstate.my_worker[clt_req_item[i].worker_idx].worker,
+                                   worker_req);
+            mstate.response_client_map[req_tag[i]] = clt_req_item[i];
+        }
     }
 }
 
@@ -297,7 +341,10 @@ int get_next_worker_idx_counterprimes(int n) {
     for (int i = 1; i < mstate.num_workers; i++) {
         int new_request_num =
             mstate.my_worker[i].num_request_each_type[COUNTERPRIMES];
-        if (new_request_num < min_num_request) worker_idx = i;
+        if (new_request_num < min_num_request) {
+            min_num_request = new_request_num;
+            worker_idx = i;
+        }
     }
     mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES] += n;
     return worker_idx;
