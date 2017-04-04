@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <sstream>
-// #include <glog/logging.h>
+#include <glog/logging.h>
 #include <pthread.h>
 
 #include "server/messages.h"
@@ -13,14 +13,25 @@
 #include "request_type_def.h"
 #include "return_error.h"
 
+#define DEBUG
+#ifdef DEBUG
+#define DEBUG_PRINT printf
+#else
+#define DEBUG_PRINT(...)
+#endif
+
 #define MAX_RUNNING_TELLMENOW 4
 #define MAX_RUNNING_PROJECTIDEA 2
+#define NUM_THREAD_NUM 1
+
+int tid[NUM_THREAD_NUM];
 
 // TODO remember to remove it
 // void pthread_mutex_lock(pthread_mutex_t *mutex, void *ptr);
 // void pthread_mutex_unlock(pthread_mutex_t *mutex, void *ptr);
 
 typedef struct wstate {
+    int worker_id;
     fifo_queue_t fifo_queue;
     fast_queue_t fast_queue;
     sche_queue_t sche_queue;
@@ -31,6 +42,7 @@ typedef struct wstate {
 wstate_t wstate;
 
 /* internal function */
+void *worker_exec_request_pthread(void *tid_ptr);
 void enqueue_request(int req_type, const Request_msg & req);
 int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero);
 void work_on_req(const Request_msg& req);
@@ -40,40 +52,40 @@ void decrease_running_req_cnt(wstate_t *wstate, int req_type);
 // int get_projectidea(wstate_t *wstate, Request_msg& req);
 
 // Generate a valid 'countprimes' request dictionary from integer 'n'
-static void create_computeprimes_req(Request_msg& req, int n) {
-    std::ostringstream oss;
-    oss << n;
-    req.set_arg("cmd", "countprimes");
-    req.set_arg("n", oss.str());
-}
+// static void create_computeprimes_req(Request_msg& req, int n) {
+//     std::ostringstream oss;
+//     oss << n;
+//     req.set_arg("cmd", "countprimes");
+//     req.set_arg("n", oss.str());
+// }
 
-// Implements logic required by compareprimes command via multiple
-// calls to execute_work.  This function fills in the appropriate
-// response.
-static void execute_compareprimes(const Request_msg& req, Response_msg& resp) {
+// // Implements logic required by compareprimes command via multiple
+// // calls to execute_work.  This function fills in the appropriate
+// // response.
+// static void execute_compareprimes(const Request_msg& req, Response_msg& resp) {
 
-    int params[4];
-    int counts[4];
+//     int params[4];
+//     int counts[4];
 
-    // grab the four arguments defining the two ranges
-    params[0] = atoi(req.get_arg("n1").c_str());
-    params[1] = atoi(req.get_arg("n2").c_str());
-    params[2] = atoi(req.get_arg("n3").c_str());
-    params[3] = atoi(req.get_arg("n4").c_str());
+//     // grab the four arguments defining the two ranges
+//     params[0] = atoi(req.get_arg("n1").c_str());
+//     params[1] = atoi(req.get_arg("n2").c_str());
+//     params[2] = atoi(req.get_arg("n3").c_str());
+//     params[3] = atoi(req.get_arg("n4").c_str());
 
-    for (int i = 0; i < 4; i++) {
-        Request_msg dummy_req(0);
-        Response_msg dummy_resp(0);
-        create_computeprimes_req(dummy_req, params[i]);
-        execute_work(dummy_req, dummy_resp);
-        counts[i] = atoi(dummy_resp.get_response().c_str());
-    }
+//     for (int i = 0; i < 4; i++) {
+//         Request_msg dummy_req(0);
+//         Response_msg dummy_resp(0);
+//         create_computeprimes_req(dummy_req, params[i]);
+//         execute_work(dummy_req, dummy_resp);
+//         counts[i] = atoi(dummy_resp.get_response().c_str());
+//     }
 
-    if (counts[1] - counts[0] > counts[3] - counts[2])
-        resp.set_response("There are more primes in first range.");
-    else
-        resp.set_response("There are more primes in second range.");
-}
+//     if (counts[1] - counts[0] > counts[3] - counts[2])
+//         resp.set_response("There are more primes in first range.");
+//     else
+//         resp.set_response("There are more primes in second range.");
+// }
 
 
 void worker_node_init(const Request_msg& params) {
@@ -83,23 +95,24 @@ void worker_node_init(const Request_msg& params) {
     // pthreads here.  Remember, when running on Amazon servers, worker
     // processes will run on an instance with a dual-core CPU.
 
-    DLOG(INFO) << "**** Initializing worker: " << params.get_arg("name") << " ****\n";
+    wstate.worker_id = atoi(params.get_arg("worker_id").c_str());
+    DLOG(INFO) << "**** Initializing worker: " << params.get_arg("worker_id") << " ****\n";
     int ret = 0;
     ret = fifo_queue_init(&wstate.fifo_queue);
     if (ret != SUCCESS) {
-        DLOG(INFO) << "**** Initializing worker fifo failed: " << params.get_arg("name") << " ****\n";
+        DLOG(INFO) << "**** Initializing worker fifo failed: " << params.get_arg("worker_id") << " ****\n";
         exit(-1);
     }
 
     ret = fast_queue_init(&wstate.fast_queue);
     if (ret != SUCCESS) {
-        DLOG(INFO) << "**** Initializing worker fast failed: " << params.get_arg("name") << " ****\n";
+        DLOG(INFO) << "**** Initializing worker fast failed: " << params.get_arg("worker_id") << " ****\n";
         exit(-1);
     }
 
     ret = sche_queue_init(&wstate.sche_queue);
     if (ret != SUCCESS) {
-        DLOG(INFO) << "**** Initializing worker sche failed: " << params.get_arg("name") << " ****\n";
+        DLOG(INFO) << "**** Initializing worker sche failed: " << params.get_arg("worker_id") << " ****\n";
         exit(-1);
     }
 
@@ -109,13 +122,23 @@ void worker_node_init(const Request_msg& params) {
         if (ret != 0) break;
     }
     if (ret != 0) {
-        DLOG(INFO) << "**** Initializing worker mutex failed: " << params.get_arg("name") << " ****\n";
+        DLOG(INFO) << "**** Initializing worker mutex failed: " << params.get_arg("work_id") << " ****\n";
         exit(-1);
     }
     ret = pthread_cond_init(&wstate.waiting_cond, NULL);
     if (ret != 0) {
-        DLOG(INFO) << "**** Initializing worker cond failed: " << params.get_arg("name") << " ****\n";
+        DLOG(INFO) << "**** Initializing worker cond failed: " << params.get_arg("work_id") << " ****\n";
         exit(-1);
+    }
+
+    pthread_t work_thread[NUM_THREAD_NUM];
+
+    for (int i = 0; i < NUM_THREAD_NUM; i++) {
+        tid[i] = i;
+        pthread_create(&work_thread[i],
+                       NULL,
+                       &worker_exec_request_pthread,
+                       (&tid[i]));
     }
 }
 
@@ -126,8 +149,13 @@ void worker_handle_request(const Request_msg& req) {
     // is a way for your master to match worker responses to requests.
     // Response_msg resp(req.get_tag());
     DLOG(INFO) << "Worker got request: [" << req.get_tag() << ":" << req.get_request_string() << "]\n";
+
+    DEBUG_PRINT("!!!!!!!!!%d worker got request, request tag: %d, req: %s\n",
+                wstate.worker_id,
+                req.get_tag(),
+                req.get_request_string().c_str());
     int req_type = -1;
-    if (req.get_arg("cmd").compare("wisdom418") == 0) {
+    if (req.get_arg("cmd").compare("418wisdom") == 0) {
         req_type = WISDOM418;
     } else if (req.get_arg("cmd").compare("projectidea") == 0) {
         req_type = PROJECTIDEA;
@@ -167,20 +195,31 @@ void worker_handle_request(const Request_msg& req) {
     // worker_send_response(resp);
 }
 
-void worker_exec_request_pthread(int tid) {
+void *worker_exec_request_pthread(void *tid_ptr) {
+    // int tid = *(int *)tid_ptr;
+    // printf("Hi, I am thread %d\n", tid);
     int ret = 1;
     int wait_if_zero = 0;
+    // exit(-1);
     Request_msg req;
+    int i = 0;
     while (1) {
         while (1) {
             ret = get_req(&wstate, req, wait_if_zero);
-            if (ret) break;
+            // DEBUG_PRINT("originally, i: %d should never be greater than 2\n",
+            //             i);
+            if (ret) {
+                break;
+            }
             wait_if_zero = 1;
         }
         work_on_req(req);
+        i++;
     }
-}
 
+    return NULL;
+}
+int iiii_global = 0;
 int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
     int ret = 0;
     // ret = increase_running_req_cnt(wstate, TELLMENOW);
@@ -192,6 +231,7 @@ int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
                              wait_if_zero,
                              &wstate->waiting_cond);
         if (ret) return 1;
+        DEBUG_PRINT("wait_if_zero: %d\n", wait_if_zero);
         // else decrease_running_req_cnt(wstate, TELLMENOW);
     }
 
@@ -207,69 +247,36 @@ int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
     }
 
     ret = sche_queue_get(&wstate->sche_queue, req, &wstate->fifo_queue);
-    if (ret) return 1;
+    if (ret) {
+        iiii_global++;
+        DEBUG_PRINT("sche_queue_get should only return 1 once\n");
+        return 1;
+    }
     return 0;
 }
-
-// int get_tellmenow(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
-//     pthread_mutex_lock(&wstate->fast_queue.tellmenow_mutex, NULL);
-//     if (wstate->fast_queue.tellmenow_req_cnt == 0) {
-//         pthread_mutex_unlock(&wstate->fast_queue.tellmenow_mutex, NULL);
-//         return 0;
-//     }
-//     wstate->fast_queue.tellmenow_req_cnt--;
-//     pthread_mutex_unlock(&wstate->fast_queue.tellmenow_mutex, NULL);
-//     req = wstate->fast_queue.tellmenow_queue.get_work();
-//     return 1;
-// }
-
-// int get_projectidea(wstate_t *wstate, Request_msg& req) {
-//     pthread_mutex_lock(&wstate->running_cnt_mutex[PROJECTIDEA], NULL);
-//     if (wstate->request_running_cnt[PROJECTIDEA] == MAX_RUNNING_PROJECTIDEA) {
-//         pthread_mutex_unlock(&wstate->running_cnt_mutex[PROJECTIDEA], NULL);
-//         return 0;
-//     }
-//     pthread_mutex_lock(&wstate->fast_queue.projectidea_mutex, NULL);
-//     if (wstate->fast_queue.projectidea_req_cnt == 0) {
-//         pthread_mutex_unlock(&wstate->running_cnt_mutex[PROJECTIDEA], NULL);
-//         pthread_mutex_unlock(&wstate->fast_queue.projectidea_mutex, NULL);
-//         return 0;
-//     }
-//     wstate->fast_queue.projectidea_req_cnt--;
-//     wstate->request_running_cnt[PROJECTIDEA]++;
-//     pthread_mutex_unlock(&wstate->fast_queue.projectidea_mutex, NULL);
-//     pthread_mutex_unlock(&wstate->running_cnt_mutex[PROJECTIDEA], NULL);
-//     req = wstate->fast_queue.projectidea_queue.get_work();
-//     return 1;
-// }
-
-// int get_sche_req(wstate_t *wstate, Request_msg& req) {
-
-//     return 1;
-// }
 
 int increase_running_req_cnt(wstate_t *wstate, int req_type) {
     switch (req_type) {
     case WISDOM418:
     case COUNTERPRIMES:
-        // pthread_mutex_lock(&wstate->running_cnt_mutex[req_type], NULL);
+        // pthread_mutex_lock(&wstate->running_cnt_mutex[req_type]);
         // wstate->request_running_cnt[req_type]++;
-        // pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type], NULL);
+        // pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type]);
         break;
     case PROJECTIDEA:
-        pthread_mutex_lock(&wstate->running_cnt_mutex[req_type], NULL);
+        pthread_mutex_lock(&wstate->running_cnt_mutex[req_type]);
         if (wstate->request_running_cnt[req_type] >= MAX_RUNNING_PROJECTIDEA) {
-            pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type], NULL);
+            pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type]);
             return 0;
         } else {
             wstate->request_running_cnt[req_type]++;
-            pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type], NULL);
+            pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type]);
         }
         break;
     case TELLMENOW:
-        // pthread_mutex_lock(&wstate->running_cnt_mutex[req_type], NULL);
+        // pthread_mutex_lock(&wstate->running_cnt_mutex[req_type]);
         // wstate->request_running_cnt[req_type]++;
-        // pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type], NULL);
+        // pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type]);
         break;
     }
     return 1;
@@ -279,19 +286,19 @@ void decrease_running_req_cnt(wstate_t *wstate, int req_type) {
     switch (req_type) {
     case WISDOM418:
     case COUNTERPRIMES:
-        // pthread_mutex_lock(&wstate->running_cnt_mutex[req_type], NULL);
+        // pthread_mutex_lock(&wstate->running_cnt_mutex[req_type]);
         // wstate->request_running_cnt[req_type]++;
-        // pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type], NULL);
+        // pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type]);
         break;
     case PROJECTIDEA:
-        pthread_mutex_lock(&wstate->running_cnt_mutex[req_type], NULL);
+        pthread_mutex_lock(&wstate->running_cnt_mutex[req_type]);
         wstate->request_running_cnt[req_type]--;
-        pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type], NULL);
+        pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type]);
         break;
     case TELLMENOW:
-        // pthread_mutex_lock(&wstate->running_cnt_mutex[req_type], NULL);
+        // pthread_mutex_lock(&wstate->running_cnt_mutex[req_type]);
         // wstate->request_running_cnt[req_type]++;
-        // pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type], NULL);
+        // pthread_mutex_unlock(&wstate->running_cnt_mutex[req_type]);
         break;
     }
 }
@@ -299,6 +306,8 @@ void decrease_running_req_cnt(wstate_t *wstate, int req_type) {
 void work_on_req(const Request_msg& req) {
     Response_msg resp(req.get_tag());
     execute_work(req, resp);
+    DEBUG_PRINT("worker %d is going to send resp: %s for req %d to master\n",
+                wstate.worker_id, resp.get_response().c_str(), req.get_tag());
     worker_send_response(resp);
 }
 

@@ -1,4 +1,4 @@
-//#include <glog/logging.h>
+#include <glog/logging.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -12,6 +12,13 @@
 #include "tools/work_queue.h"
 #include "request_type_def.h"
 #include "lru_cache.h"
+
+#define DEBUG
+#ifdef DEBUG
+#define DEBUG_PRINT printf
+#else
+#define DEBUG_PRINT(...)
+#endif
 
 #define MAX_WORKERS 8
 #define COMPPRI_NUM 4
@@ -32,7 +39,6 @@ typedef struct client_request_item {
 } client_request_item_t;
 
 typedef struct my_worker_info {
-    int worker_tag;
     Worker_handle worker;
     int num_request_each_type[NUM_TYPES];
 } my_worker_info_t;
@@ -55,8 +61,8 @@ static struct Master_state {
     lru_cache_t lru_cache;
 } mstate;
 
-void handle_compareprimes_req(Client_handle client_handle,
-                              const Request_msg& client_req);
+void handle_compareprimes_req(Client_handle &client_handle,
+                              const Request_msg &client_req);
 int get_next_worker_idx(int request_type);
 int get_next_worker_idx_counterprimes(int n);
 static void create_computeprimes_req(Request_msg& req, int n);
@@ -74,8 +80,7 @@ void master_node_init(int max_workers, int& tick_period) {
     mstate.next_request_tag = 0;
     cache_init(mstate.lru_cache, MAX_CACHE_SIZE);
 
-    for (int i = 0; i < MAX_WORKERS; i++) {
-        mstate.my_worker[i].worker_tag = 0;
+    for (int i = 0; i < max_workers; i++) {
         mstate.my_worker[i].worker = NULL;
         for (int j = 0; j < NUM_TYPES; j++)
             mstate.my_worker[i].num_request_each_type[j] = 0;
@@ -90,13 +95,12 @@ void master_node_init(int max_workers, int& tick_period) {
 
     // fire off a request for a new worker
 
-    std::string name_field = "name";
-    std::string name_value = "my worker";
-
+    std::string name_field = "worker_id";
     for (int i = 0; i < max_workers; i++) {
-        int tag = random();
-        Request_msg req(tag);
-        req.set_arg(name_field, name_value + std::to_string(i));
+        Request_msg req(i);
+        std::string id = std::to_string(i);
+        // printf("worker id %s in master", id);
+        req.set_arg(name_field, id);
         request_new_worker_node(req);
     }
 }
@@ -107,8 +111,9 @@ void handle_new_worker_online(Worker_handle worker_handle, int tag) {
     // corresponds to.  Since the starter code only sends off one new
     // worker request, we don't use it here.
 
-    int idx = mstate.num_workers++;
-    mstate.my_worker[idx].worker_tag = tag;
+    // DEBUG_PRINT("worker %d\n", tag);
+    mstate.num_workers++;
+    int idx = tag;
     mstate.my_worker[idx].worker = worker_handle;
     for (int i = 0; i < NUM_TYPES; i++) {
         mstate.my_worker[idx].num_request_each_type[i] = 0;
@@ -147,6 +152,8 @@ void handle_worker_response(Worker_handle worker_handle, const Response_msg& res
     } else mstate.my_worker[worker_idx].num_request_each_type[request_type]--;
     mstate.response_client_map.erase(request_tag);
     std::string req_desp = client_request_item.client_req.get_request_string();
+    DEBUG_PRINT("resp: %s in handle_worker_response\n",
+                resp.get_response().c_str());
     cache_put(mstate.lru_cache, req_desp, resp);
     send_client_response(client_request_item.client_handle, resp);
 }
@@ -200,6 +207,7 @@ void handle_client_request(Client_handle client_handle, const Request_msg& clien
 
     DLOG(INFO) << "Received request: " << client_req.get_request_string() << std::endl;
 
+    DEBUG_PRINT("%s\n", client_req.get_request_string().c_str());
     // You can assume that traces end with this special message.  It
     // exists because it might be useful for debugging to dump
     // information about the entire run here: statistics, etc.
@@ -225,8 +233,10 @@ void handle_client_request(Client_handle client_handle, const Request_msg& clien
     client_request_item.client_req = client_req;
 
     int worker_idx = 0;
-    if (client_req.get_arg("cmd").compare("wisdom418") == 0) {
+    // TODO modified for dubug use.
+    if (client_req.get_arg("cmd").compare("418wisdom") == 0) {
         worker_idx = get_next_worker_idx(WISDOM418);
+        DEBUG_PRINT("worker_idx: %d from master\n", worker_idx);
         client_request_item.request_type = WISDOM418;
     } else if (client_req.get_arg("cmd").compare("projectidea") == 0) {
         worker_idx = get_next_worker_idx(PROJECTIDEA);
@@ -244,6 +254,7 @@ void handle_client_request(Client_handle client_handle, const Request_msg& clien
         resp.set_response("Oh no! This type of request is not supported by server");
         send_client_response(client_handle, resp);
         mstate.response_client_map.erase(request_tag);
+        return;
     }
 
     client_request_item.worker_idx = worker_idx;

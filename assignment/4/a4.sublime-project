@@ -1,10 +1,4 @@
 {
-    "folders":
-    [
-        {
-            "path": "."
-        }
-    ],
     "SublimeLinter":
     {
         "linters":
@@ -22,5 +16,11 @@
                 ]
             }
         }
-    }
+    },
+    "folders":
+    [
+        {
+            "path": "."
+        }
+    ]
 }
