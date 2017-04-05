@@ -10,7 +10,7 @@
 #include "request_type_def.h"
 
 #define DEFAULT_COMPLEXITY 1000000
-#define SCHEDULER_LENGTH 10
+#define SCHEDULER_LENGTH 200
 
 #define DEBUG
 #ifdef DEBUG
@@ -243,7 +243,6 @@ int fill_sche_queue(sche_queue_t *sche_queue, fifo_queue_t *fifo_queue) {
             }
         }
         input_len++;
-        DEBUG_PRINT("min_idx: %d\n", min_idx);
         sche_queue->queue.put_work(fifo_array[min_idx].req);
         is_taken[min_idx] = 1;
     }

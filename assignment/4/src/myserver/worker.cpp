@@ -22,7 +22,7 @@
 
 #define MAX_RUNNING_TELLMENOW 4
 #define MAX_RUNNING_PROJECTIDEA 2
-#define NUM_THREAD_NUM 1
+#define NUM_THREAD_NUM 24
 
 int tid[NUM_THREAD_NUM];
 
@@ -196,7 +196,7 @@ void worker_handle_request(const Request_msg& req) {
 }
 
 void *worker_exec_request_pthread(void *tid_ptr) {
-    // int tid = *(int *)tid_ptr;
+    int tid = *(int *)tid_ptr;
     // printf("Hi, I am thread %d\n", tid);
     int ret = 1;
     int wait_if_zero = 0;
@@ -213,7 +213,9 @@ void *worker_exec_request_pthread(void *tid_ptr) {
             }
             wait_if_zero = 1;
         }
-        DEBUG_PRINT("Going to work on request %d, arg: %s\n",
+        DEBUG_PRINT("worker %d thread %d, Going to work on request %d, arg: %s\n",
+                    wstate.worker_id,
+                    tid,
                     req.get_tag(),
                     req.get_request_string().c_str());
         work_on_req(req);

@@ -152,9 +152,9 @@ void handle_worker_response(Worker_handle worker_handle, const Response_msg& res
     } else mstate.my_worker[worker_idx].num_request_each_type[request_type]--;
     mstate.response_client_map.erase(request_tag);
     std::string req_desp = client_request_item.client_req.get_request_string();
-    DEBUG_PRINT("resp: %s in handle_worker_response\n",
-                resp.get_response().c_str());
     master_cache.put(req_desp, resp);
+    DEBUG_PRINT("resp: %s in handle_worker_response is put into cache\n",
+                req_desp.c_str());
     send_client_response(client_request_item.client_handle, resp);
 }
 
@@ -213,6 +213,8 @@ void handle_client_request(Client_handle client_handle, const Request_msg& clien
     Response_msg cached_resp;
     std::string cached_req_desp = client_req.get_request_string();
     if (master_cache.exist(cached_req_desp) == true) {
+        DEBUG_PRINT("cache hit, request: %s\n",
+                    client_req.get_request_string().c_str());
         cached_resp = master_cache.get(cached_req_desp);
         send_client_response(client_handle, cached_resp);
         return;
@@ -342,7 +344,10 @@ int get_next_worker_idx(int request_type) {
     for (int i = 1; i < mstate.num_workers; i++) {
         int new_request_num =
             mstate.my_worker[i].num_request_each_type[request_type];
-        if (new_request_num < min_num_request) worker_idx = i;
+        if (new_request_num < min_num_request) {
+            min_num_request = new_request_num;
+            worker_idx = i;
+        }
     }
     mstate.my_worker[worker_idx].num_request_each_type[request_type]++;
     return worker_idx;
