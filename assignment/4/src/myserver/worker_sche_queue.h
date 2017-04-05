@@ -10,16 +10,14 @@
 #include "request_type_def.h"
 
 #define DEFAULT_COMPLEXITY 1000000
-#define SCHEDULER_LENGTH 200
+#define SCHEDULER_LENGTH 64
 
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
 #define DEBUG_PRINT printf
 #else
 #define DEBUG_PRINT(...)
 #endif
-
-extern int iiii_global;
 
 typedef struct fifo_queue_item {
     int complexity;

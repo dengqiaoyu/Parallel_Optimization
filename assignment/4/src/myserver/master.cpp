@@ -13,7 +13,7 @@
 #include "request_type_def.h"
 #include "lru_cache.h"
 
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
 #define DEBUG_PRINT printf
 #else
@@ -65,7 +65,7 @@ lru_cache<std::string, Response_msg> master_cache(MAX_CACHE_SIZE);
 void handle_compareprimes_req(Client_handle &client_handle,
                               const Request_msg &client_req);
 int get_next_worker_idx(int request_type);
-int get_next_worker_idx_counterprimes(int n);
+int get_next_worker_idx_countprimes(int n);
 static void create_computeprimes_req(Request_msg& req, int n);
 void handle_comppri_response(Worker_handle worker_handle,
                              const Response_msg& resp,
@@ -246,9 +246,9 @@ void handle_client_request(Client_handle client_handle, const Request_msg& clien
     } else if (client_req.get_arg("cmd").compare("tellmenow") == 0) {
         worker_idx = get_next_worker_idx(TELLMENOW);
         client_request_item.request_type = TELLMENOW;
-    } else if (client_req.get_arg("cmd").compare("counterprimes") == 0) {
+    } else if (client_req.get_arg("cmd").compare("countprimes") == 0) {
         int n = atoi(client_req.get_arg("n").c_str());
-        worker_idx = get_next_worker_idx_counterprimes(n);
+        worker_idx = get_next_worker_idx_countprimes(n);
         client_request_item.request_type = COUNTERPRIMES;
         client_request_item.counter_primes_n = n;
     } else {
@@ -299,7 +299,7 @@ void handle_compareprimes_req(Client_handle &client_handle,
         clt_req_item[i].counter_primes_n = comppri_item.params[i];
         clt_req_item[i].request_type = COMPAREPRIMES;
         clt_req_item[i].worker_idx =
-            get_next_worker_idx_counterprimes(comppri_item.params[i]);
+            get_next_worker_idx_countprimes(comppri_item.params[i]);
         clt_req_item[i].idx_if_compppri = main_tag;
     }
 
@@ -353,7 +353,7 @@ int get_next_worker_idx(int request_type) {
     return worker_idx;
 }
 
-int get_next_worker_idx_counterprimes(int n) {
+int get_next_worker_idx_countprimes(int n) {
     int worker_idx = 0;
     int min_num_request =
         mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES];

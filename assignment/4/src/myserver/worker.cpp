@@ -161,7 +161,7 @@ void worker_handle_request(const Request_msg& req) {
         req_type = PROJECTIDEA;
     } else if (req.get_arg("cmd").compare("tellmenow") == 0) {
         req_type = TELLMENOW;
-    } else if (req.get_arg("cmd").compare("counterprimes") == 0) {
+    } else if (req.get_arg("cmd").compare("countprimes") == 0) {
         req_type = COUNTERPRIMES;
     }
     enqueue_request(req_type, req);

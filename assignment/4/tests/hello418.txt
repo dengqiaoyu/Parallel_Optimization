@@ -1,17 +1,9 @@
 {"time": 0, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 100, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 150, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 200, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 250, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 300, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 350, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 400, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 450, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 500, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 550, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 600, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 650, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 700, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 750, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 800, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
-{"time": 4000, "work": "cmd=lastrequest", "resp": "ack" }
+{"time": 10, "work": "cmd=countprimes;n=848393", "resp": "67497"}
+{"time": 100, "work": "cmd=countprimes;n=779069", "resp": "62402"}
+{"time": 200, "work": "cmd=countprimes;n=1000011", "resp": "78499"}
+{"time": 300, "work": "cmd=countprimes;n=834567", "resp": "66499"}
+{"time": 400, "work": "cmd=countprimes;n=780123", "resp": "62475"}
+{"time": 500, "work": "cmd=countprimes;n=990611", "resp": "77823"}
+{"time": 600, "work": "cmd=countprimes;n=830237", "resp": "66175"}
+{"time": 500, "work": "cmd=lastrequest", "resp": "ack" }

@@ -6,7 +6,7 @@
 #include <list>
 #include "server/messages.h"
 
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
 #define DEBUG_PRINT printf
 #else

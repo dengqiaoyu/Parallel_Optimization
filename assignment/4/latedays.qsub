@@ -7,7 +7,7 @@
 # good reason to increase your walltime unless you wanted to run a
 # singled threaded server on a full trace just for correctness.
 #
-#PBS -lwalltime=0:6:00
+#PBS -lwalltime=0:4:00
 
 
 #
