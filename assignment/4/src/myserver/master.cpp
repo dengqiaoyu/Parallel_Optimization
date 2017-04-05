@@ -1,4 +1,4 @@
-#include <glog/logging.h>
+// #include <glog/logging.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -20,9 +20,21 @@
 #define DEBUG_PRINT(...)
 #endif
 
+#ifdef LOG
+#define LOG_PRINT printf
+#else
+#define LOG_PRINT(...)
+#endif
+
 #define MAX_WORKERS 8
 #define COMPPRI_NUM 4
 #define MAX_CACHE_SIZE 100000
+#define MAX_RUNNING_PROJECTIDEA 2
+#define SCALEOUT_THRESHOLD 24
+#define SCALEIN_THRESHOLD 12
+#define MIN_TIME_BEFORE_GET_KILLED 9
+#define MIN_TIME_BEFORE_NEXT_WORKER 3
+#define INITIAL_WORKER_NUM 1
 
 typedef struct comppri_item {
     int params[COMPPRI_NUM];
@@ -41,6 +53,8 @@ typedef struct client_request_item {
 typedef struct my_worker_info {
     Worker_handle worker;
     int num_request_each_type[NUM_TYPES];
+    int sum_primes_countprimes;
+    int time_to_be_killed;
 } my_worker_info_t;
 
 static struct Master_state {
@@ -52,12 +66,17 @@ static struct Master_state {
 
     bool server_ready;
     int max_num_workers;
+    int plan_num_workers;
     int next_request_tag;
 
     my_worker_info_t my_worker[MAX_WORKERS];
     int num_workers;
     std::map<int, client_request_item_t> response_client_map;
     std::map<int, comppri_item_t> comppri_map;
+
+    int num_cpu_intensive;
+    int num_projectidea;
+    int time_since_last_new;
 } mstate;
 
 lru_cache<std::string, Response_msg> master_cache(MAX_CACHE_SIZE);
@@ -70,20 +89,26 @@ static void create_computeprimes_req(Request_msg& req, int n);
 void handle_comppri_response(Worker_handle worker_handle,
                              const Response_msg& resp,
                              client_request_item_t &client_request_item);
+void printf_worker_info();
+int ck_scale_cond();
 
 void master_node_init(int max_workers, int& tick_period) {
 
     // WorkQueue<client_request_item_t> queue = WorkQueue();
     // set up tick handler to fire every 5 seconds. (feel free to
     // configure as you please)
-    tick_period = 5;
+    tick_period = 1;
     mstate.max_num_workers = max_workers;
+    mstate.plan_num_workers = INITIAL_WORKER_NUM;
     mstate.next_request_tag = 0;
+    mstate.time_since_last_new = 0;
 
     for (int i = 0; i < max_workers; i++) {
         mstate.my_worker[i].worker = NULL;
         for (int j = 0; j < NUM_TYPES; j++)
             mstate.my_worker[i].num_request_each_type[j] = 0;
+        mstate.my_worker[i].sum_primes_countprimes = 0;
+        mstate.my_worker[i].time_to_be_killed = -1;
     }
     mstate.num_workers = 0;
 
@@ -96,7 +121,7 @@ void master_node_init(int max_workers, int& tick_period) {
     // fire off a request for a new worker
 
     std::string name_field = "worker_id";
-    for (int i = 0; i < max_workers; i++) {
+    for (int i = 0; i < mstate.plan_num_workers; i++) {
         Request_msg req(i);
         std::string id = std::to_string(i);
         // printf("worker id %s in master", id);
@@ -117,12 +142,13 @@ void handle_new_worker_online(Worker_handle worker_handle, int tag) {
     mstate.my_worker[idx].worker = worker_handle;
     for (int i = 0; i < NUM_TYPES; i++) {
         mstate.my_worker[idx].num_request_each_type[i] = 0;
+        mstate.my_worker[idx].sum_primes_countprimes = 0;
     }
 
     // Now that a worker is booted, let the system know the server is
     // ready to begin handling client requests.  The test harness will
     // now start its timers and start hitting your server with requests.
-    if (mstate.num_workers == mstate.max_num_workers) {
+    if (mstate.num_workers == mstate.plan_num_workers) {
         server_init_complete();
         mstate.server_ready = true;
     }
@@ -141,15 +167,21 @@ void handle_worker_response(Worker_handle worker_handle, const Response_msg& res
     int request_tag = resp.get_tag();
     client_request_item_t client_request_item =
         mstate.response_client_map[request_tag];
-    if (client_request_item.request_type == COMPAREPRIMES)
-        return handle_comppri_response(worker_handle, resp, client_request_item);
-    int worker_idx = client_request_item.worker_idx;
     int request_type = client_request_item.request_type;
+    if (request_type == WISDOM418 || request_type == COUNTERPRIMES) {
+        mstate.num_cpu_intensive--;
+    } else if (request_type == COMPAREPRIMES) {
+        mstate.num_cpu_intensive--;
+        return handle_comppri_response(worker_handle,
+                                       resp, client_request_item);
+    } else if (request_type == PROJECTIDEA) {
+        mstate.num_projectidea--;
+    }
+    int worker_idx = client_request_item.worker_idx;
     int counter_primes_n = client_request_item.counter_primes_n;
-    if (request_type == COUNTERPRIMES) {
-        mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES] -= \
-                counter_primes_n;
-    } else mstate.my_worker[worker_idx].num_request_each_type[request_type]--;
+    mstate.my_worker[worker_idx].num_request_each_type[request_type]--;
+    if (request_type == COUNTERPRIMES)
+        mstate.my_worker[worker_idx].sum_primes_countprimes -= counter_primes_n;
     mstate.response_client_map.erase(request_tag);
     std::string req_desp = client_request_item.client_req.get_request_string();
     master_cache.put(req_desp, resp);
@@ -166,8 +198,8 @@ void handle_comppri_response(Worker_handle worker_handle,
     int counter_primes_n = client_request_item.counter_primes_n;
     int main_tag = client_request_item.idx_if_compppri;
     int count = atoi(resp.get_response().c_str());
-    mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES] -= \
-            counter_primes_n;
+    mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES] -= 1;
+    mstate.my_worker[worker_idx].sum_primes_countprimes -= counter_primes_n;
 
     comppri_item_t comppri_item;
     comppri_item = mstate.comppri_map[main_tag];
@@ -238,10 +270,12 @@ void handle_client_request(Client_handle client_handle, const Request_msg& clien
     int worker_idx = 0;
     // TODO modified for dubug use.
     if (client_req.get_arg("cmd").compare("418wisdom") == 0) {
+        mstate.num_cpu_intensive++;
         worker_idx = get_next_worker_idx(WISDOM418);
         DEBUG_PRINT("worker_idx: %d from master\n", worker_idx);
         client_request_item.request_type = WISDOM418;
     } else if (client_req.get_arg("cmd").compare("projectidea") == 0) {
+        mstate.num_projectidea++;
         worker_idx = get_next_worker_idx(PROJECTIDEA);
         client_request_item.request_type = PROJECTIDEA;
     } else if (client_req.get_arg("cmd").compare("tellmenow") == 0) {
@@ -356,17 +390,20 @@ int get_next_worker_idx(int request_type) {
 
 int get_next_worker_idx_countprimes(int n) {
     int worker_idx = 0;
-    int min_num_request =
-        mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES];
+    int min_primes_sum =
+        mstate.my_worker[worker_idx].sum_primes_countprimes;
     for (int i = 1; i < mstate.num_workers; i++) {
-        int new_request_num =
-            mstate.my_worker[i].num_request_each_type[COUNTERPRIMES];
-        if (new_request_num < min_num_request) {
-            min_num_request = new_request_num;
+        int new_request_primes_sum =
+            mstate.my_worker[i].sum_primes_countprimes;
+        // LOG_PRINT("min_primes_sum: %d, new_request_primes_sum: %d\n",
+        //           min_primes_sum, new_request_primes_sum);
+        if (new_request_primes_sum < min_primes_sum) {
+            min_primes_sum = new_request_primes_sum;
             worker_idx = i;
         }
     }
-    mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES] += n;
+    mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES]++;
+    mstate.my_worker[worker_idx].sum_primes_countprimes += n;
     return worker_idx;
 }
 
@@ -382,6 +419,52 @@ void handle_tick() {
     // TODO: you may wish to take action here.  This method is called at
     // fixed time intervals, according to how you set 'tick_period' in
     // 'master_node_init'.
+#ifdef LOG
+    printf_worker_info();
+#endif
 
+    int if_scale = ck_scale_cond();
+}
+
+int ck_scale_cond() {
+    int ave_cpu_intensive = mstate.num_cpu_intensive / mstate.num_workers;
+    int num_projectidea = mstate.num_projectidea;
+    int num_proj_slots = mstate.num_workers * MAX_RUNNING_PROJECTIDEA;
+    if (ave_cpu_intensive >= SCALEOUT_THRESHOLD
+            || num_proj_slots - num_projectidea < 1) {
+        if (mstate.time_since_last_new >= MIN_TIME_BEFORE_NEXT_WORKER)
+            return 1;
+    } else if (ave_cpu_intensive < SCALEIN_THRESHOLD) {
+        return 1;
+    }
+
+    return 0;
+}
+
+void printf_worker_info() {
+    LOG_PRINT("\n\n######################################################\n\n");
+    for (int i = 0; i < mstate.num_workers; i++) {
+        int num_cpu_intensive = 0;
+        int num_works_total = 0;
+        for (int j = 0; j < NUM_TYPES - 1; j++) {
+            if (j == WISDOM418 || j == COUNTERPRIMES) {
+                num_cpu_intensive +=
+                    mstate.my_worker[i].num_request_each_type[j];
+            }
+            num_works_total +=
+                mstate.my_worker[i].num_request_each_type[j];
+        }
+        LOG_PRINT("Worker %d, 418wisdom: %d, countprimes: %d, countprimes_sum: %d, cpu_intensive:%d,  projectidea: %d, tellmenow: %d, works_total: %d\n",
+                  i,
+                  mstate.my_worker[i].num_request_each_type[WISDOM418],
+                  mstate.my_worker[i].num_request_each_type[COUNTERPRIMES],
+                  mstate.my_worker[i].sum_primes_countprimes,
+                  num_cpu_intensive,
+                  mstate.my_worker[i].num_request_each_type[PROJECTIDEA],
+                  mstate.my_worker[i].num_request_each_type[TELLMENOW],
+                  num_works_total
+                 );
+    }
+    LOG_PRINT("\n\n######################################################\n\n");
 }
 

@@ -249,7 +249,10 @@ int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
         else decrease_running_req_cnt(wstate, PROJECTIDEA);
     }
 
-    ret = sche_queue_get(&wstate->sche_queue, req, &wstate->fifo_queue);
+    // ret = sche_queue_get(&wstate->sche_queue, req, &wstate->fifo_queue);
+    fifo_queue_item_t fifo_queue_item;
+    ret = fifo_queue_get(&wstate->fifo_queue, fifo_queue_item);
+    req = fifo_queue_item.req;
     if (ret) {
         return 1;
     }
