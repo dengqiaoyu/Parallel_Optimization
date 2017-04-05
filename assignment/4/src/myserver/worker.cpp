@@ -13,7 +13,7 @@
 #include "request_type_def.h"
 #include "return_error.h"
 
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
 #define DEBUG_PRINT printf
 #else
@@ -22,7 +22,7 @@
 
 #define MAX_RUNNING_TELLMENOW 4
 #define MAX_RUNNING_PROJECTIDEA 2
-#define NUM_THREAD_NUM 24
+#define NUM_THREAD_NUM 48
 
 int tid[NUM_THREAD_NUM];
 
