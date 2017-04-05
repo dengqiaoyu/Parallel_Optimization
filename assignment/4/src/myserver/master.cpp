@@ -70,6 +70,7 @@ static struct Master_state {
     int next_request_tag;
 
     my_worker_info_t my_worker[MAX_WORKERS];
+    int worker_idx_map[MAX_WORKERS];
     int num_workers;
     std::map<int, client_request_item_t> response_client_map;
     std::map<int, comppri_item_t> comppri_map;
@@ -77,6 +78,7 @@ static struct Master_state {
     int num_cpu_intensive;
     int num_projectidea;
     int time_since_last_new;
+    int if_booted;
 } mstate;
 
 lru_cache<std::string, Response_msg> master_cache(MAX_CACHE_SIZE);
@@ -90,7 +92,14 @@ void handle_comppri_response(Worker_handle worker_handle,
                              const Response_msg& resp,
                              client_request_item_t &client_request_item);
 void printf_worker_info();
+
+void update_time();
 int ck_scale_cond();
+int scale_out();
+int scale_in();
+void kill_worker();
+int get_works_num(int worker_idx);
+int get_new_free_idx();
 
 void master_node_init(int max_workers, int& tick_period) {
 
@@ -102,6 +111,7 @@ void master_node_init(int max_workers, int& tick_period) {
     mstate.plan_num_workers = INITIAL_WORKER_NUM;
     mstate.next_request_tag = 0;
     mstate.time_since_last_new = 0;
+    mstate.if_booted = 0;
 
     for (int i = 0; i < max_workers; i++) {
         mstate.my_worker[i].worker = NULL;
@@ -137,20 +147,17 @@ void handle_new_worker_online(Worker_handle worker_handle, int tag) {
     // worker request, we don't use it here.
 
     // DEBUG_PRINT("worker %d\n", tag);
-    mstate.num_workers++;
+    mstate.worker_idx_map[mstate.num_workers++] = tag;
     int idx = tag;
     mstate.my_worker[idx].worker = worker_handle;
-    for (int i = 0; i < NUM_TYPES; i++) {
-        mstate.my_worker[idx].num_request_each_type[i] = 0;
-        mstate.my_worker[idx].sum_primes_countprimes = 0;
-    }
 
     // Now that a worker is booted, let the system know the server is
     // ready to begin handling client requests.  The test harness will
     // now start its timers and start hitting your server with requests.
-    if (mstate.num_workers == mstate.plan_num_workers) {
+    if (!mstate.if_booted && mstate.num_workers == mstate.plan_num_workers) {
         server_init_complete();
         mstate.server_ready = true;
+        mstate.if_booted = 1;
     }
 }
 
@@ -373,15 +380,17 @@ void handle_compareprimes_req(Client_handle &client_handle,
 }
 
 int get_next_worker_idx(int request_type) {
-    int worker_idx = 0;
+    int worker_idx = mstate.worker_idx_map[0];
     int min_num_request =
         mstate.my_worker[worker_idx].num_request_each_type[request_type];
     for (int i = 1; i < mstate.num_workers; i++) {
+        int new_worker_idx = mstate.worker_idx_map[i];
+        if (mstate.my_worker[new_worker_idx].time_to_be_killed != -1) continue;
         int new_request_num =
-            mstate.my_worker[i].num_request_each_type[request_type];
+            mstate.my_worker[new_worker_idx].num_request_each_type[request_type];
         if (new_request_num < min_num_request) {
             min_num_request = new_request_num;
-            worker_idx = i;
+            worker_idx = new_worker_idx;
         }
     }
     mstate.my_worker[worker_idx].num_request_each_type[request_type]++;
@@ -389,17 +398,18 @@ int get_next_worker_idx(int request_type) {
 }
 
 int get_next_worker_idx_countprimes(int n) {
-    int worker_idx = 0;
+    int worker_idx = mstate.worker_idx_map[0];
     int min_primes_sum =
         mstate.my_worker[worker_idx].sum_primes_countprimes;
     for (int i = 1; i < mstate.num_workers; i++) {
+        int new_worker_idx = mstate.worker_idx_map[i];
         int new_request_primes_sum =
-            mstate.my_worker[i].sum_primes_countprimes;
+            mstate.my_worker[new_worker_idx].sum_primes_countprimes;
         // LOG_PRINT("min_primes_sum: %d, new_request_primes_sum: %d\n",
         //           min_primes_sum, new_request_primes_sum);
         if (new_request_primes_sum < min_primes_sum) {
             min_primes_sum = new_request_primes_sum;
-            worker_idx = i;
+            worker_idx = new_worker_idx;
         }
     }
     mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES]++;
@@ -423,22 +433,117 @@ void handle_tick() {
     printf_worker_info();
 #endif
 
+    // need update time.
+    update_time();
     int if_scale = ck_scale_cond();
+    if (if_scale == 1) scale_out();
+    else if (if_scale == -1) scale_in();
+    kill_worker();
 }
 
 int ck_scale_cond() {
     int ave_cpu_intensive = mstate.num_cpu_intensive / mstate.num_workers;
     int num_projectidea = mstate.num_projectidea;
-    int num_proj_slots = mstate.num_workers * MAX_RUNNING_PROJECTIDEA;
+    int num_proj_slots = mstate.plan_num_workers * MAX_RUNNING_PROJECTIDEA;
+    LOG_PRINT("cpu_inten: %d, avail_proji: %d\n"
+              , ave_cpu_intensive, num_proj_slots - num_projectidea);
     if (ave_cpu_intensive >= SCALEOUT_THRESHOLD
             || num_proj_slots - num_projectidea < 1) {
-        if (mstate.time_since_last_new >= MIN_TIME_BEFORE_NEXT_WORKER)
+        if (mstate.time_since_last_new >= MIN_TIME_BEFORE_NEXT_WORKER
+                && mstate.plan_num_workers < mstate.max_num_workers)
             return 1;
-    } else if (ave_cpu_intensive < SCALEIN_THRESHOLD) {
-        return 1;
+    } else if (ave_cpu_intensive < SCALEIN_THRESHOLD
+               && mstate.plan_num_workers > 1) {
+        return -1;
     }
 
     return 0;
+}
+
+int scale_out() {
+    if (mstate.plan_num_workers < mstate.num_workers) {
+        int worker_idx = mstate.worker_idx_map[mstate.plan_num_workers];
+        mstate.my_worker[worker_idx].time_to_be_killed = -1;
+        mstate.plan_num_workers++;
+    } else {
+        int worker_idx = get_new_free_idx();
+        if (worker_idx == -1)
+            return -1;
+        mstate.my_worker[worker_idx].worker = NULL;
+        for (int i = 0; i < NUM_TYPES; i++)
+            mstate.my_worker[worker_idx].num_request_each_type[i] = 0;
+        mstate.my_worker[worker_idx].sum_primes_countprimes = 0;
+        mstate.my_worker[worker_idx].time_to_be_killed = -1;
+
+        Request_msg req(worker_idx);
+        std::string idx_str = std::to_string(worker_idx);
+        req.set_arg("worker_id", idx_str);
+        mstate.plan_num_workers++;
+        mstate.time_since_last_new = 0;
+        request_new_worker_node(req);
+        LOG_PRINT("############################\n");
+        LOG_PRINT("Scale out!\n");
+        LOG_PRINT("############################\n");
+    }
+    return 0;
+}
+
+int scale_in() {
+    if (mstate.plan_num_workers == 1) return -1;
+    mstate.plan_num_workers--;
+    int worker_idx = mstate.worker_idx_map[mstate.plan_num_workers];
+    mstate.my_worker[worker_idx].time_to_be_killed = 0;
+    LOG_PRINT("############################\n");
+    LOG_PRINT("Scale in!\n");
+    LOG_PRINT("############################\n");
+    return 0;
+}
+
+void update_time() {
+    mstate.time_since_last_new++;
+    for (int i = 0; i < mstate.num_workers; i++) {
+        int worker_idx = mstate.worker_idx_map[i];
+        if (mstate.my_worker[worker_idx].time_to_be_killed != -1)
+            mstate.my_worker[worker_idx].time_to_be_killed++;
+    }
+}
+
+void kill_worker() {
+    for (int i = 0; i < mstate.num_workers; i++) {
+        int worker_idx = mstate.worker_idx_map[i];
+        int num_works = get_works_num(worker_idx);
+        if (mstate.my_worker[worker_idx].time_to_be_killed
+                >= MIN_TIME_BEFORE_GET_KILLED && num_works == 0) {
+            mstate.num_workers--;
+            // send close request
+            kill_worker_node(mstate.my_worker[worker_idx].worker);
+            LOG_PRINT("############################\n");
+            LOG_PRINT("Kill worker!\n");
+            LOG_PRINT("############################\n");
+        }
+    }
+}
+
+int get_works_num(int worker_idx) {
+    int num_works = 0;
+    for (int i = 0; i < NUM_TYPES - 1; i++) {
+        num_works += mstate.my_worker[worker_idx].num_request_each_type[i];
+    }
+    return num_works;
+}
+
+int get_new_free_idx() {
+    int if_occupied[MAX_WORKERS] = {0};
+    for (int i = 0; i < mstate.num_workers; i++) {
+        if_occupied[mstate.worker_idx_map[i]] = 1;
+    }
+
+    for (int i = 0; i < MAX_WORKERS; i++) {
+        if (if_occupied[i] == 0)
+            return i;
+    }
+
+    return -1;
 }
 
 void printf_worker_info() {
