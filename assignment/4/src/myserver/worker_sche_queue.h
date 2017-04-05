@@ -134,7 +134,8 @@ void fifo_queue_put(fifo_queue_t *fifo_queue,
     fifo_queue->queue.put_work(fifo_queue_item);
     fifo_queue->item_cnt++;
     pthread_mutex_unlock(&fifo_queue->fifo_lock);
-    DEBUG_PRINT("put in fifo, req: %s\n", req.get_request_string().c_str());
+    DEBUG_PRINT("put in fifo, tag: %d, req: %s\n",
+                req.get_tag(), req.get_request_string().c_str());
 }
 
 int fifo_queue_get(fifo_queue_t *fifo_queue, fifo_queue_item_t &item) {
@@ -190,12 +191,9 @@ int fast_queue_get(fast_queue_t *fast_queue,
         pthread_mutex_lock(&fast_queue->tellmenow_mutex);
         while (fast_queue->tellmenow_req_cnt == 0) {
             if (wait_if_zero) {
-                DEBUG_PRINT("@@@@@@ wait on condvar\n");
                 pthread_cond_wait(cond, &fast_queue->tellmenow_mutex);
-                DEBUG_PRINT("@@@@@@ wake on condvar\n");
                 wait_if_zero = 0;
             } else {
-                DEBUG_PRINT("@@@@@@ then return 0\n");
                 pthread_mutex_unlock(&fast_queue->tellmenow_mutex);
                 return 0;
             }
@@ -231,6 +229,12 @@ int fill_sche_queue(sche_queue_t *sche_queue, fifo_queue_t *fifo_queue) {
     //             __LINE__, actual_len);
     int input_len = 0;
     while (input_len != actual_len) {
+        for (int i = 0; i < actual_len; i++) {
+            if (is_taken[i] == 0) {
+                min_idx = i;
+                break;
+            }
+        }
         for (int i = 1; i < actual_len; i++) {
             int complexity_iter = fifo_array[i].complexity;
             if (min_complexity > complexity_iter && is_taken[i] == 0) {
@@ -239,6 +243,7 @@ int fill_sche_queue(sche_queue_t *sche_queue, fifo_queue_t *fifo_queue) {
             }
         }
         input_len++;
+        DEBUG_PRINT("min_idx: %d\n", min_idx);
         sche_queue->queue.put_work(fifo_array[min_idx].req);
         is_taken[min_idx] = 1;
     }
@@ -279,6 +284,7 @@ int sche_queue_get(sche_queue_t *sche_queue,
         //                 __LINE__, sche_queue->item_cnt);
         //     DEBUG_PRINT("line %d in sche_queue_get\n", __LINE__);
         // }
+        DEBUG_PRINT("Maybe I got into here\n");
         sche_queue->item_cnt--;
         pthread_mutex_unlock(&sche_queue->sche_lock);
     }

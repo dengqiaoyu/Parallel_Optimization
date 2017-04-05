@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <map>
-#include "list.h"
+#include <list>
 #include "server/messages.h"
 
 #define DEBUG
@@ -13,74 +13,53 @@
 #define DEBUG_PRINT(...)
 #endif
 
-typedef struct cached_item {
-    std::string clt_req;
-    Response_msg resp;
-} cached_item_t;
+template<typename key_t, typename value_t>
+class lru_cache {
+  public:
+    typedef typename std::pair<key_t, value_t> key_value_pair_t;
+    typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
 
-typedef struct lru_cache {
-    list_t lru_list;
-    std::map<std::string, node_t *> resp_map;
-    int curr_size;
-    int max_size;
-} lru_cache_t;
+    lru_cache(size_t max_size):
+        _max_size(max_size) {}
 
-void cache_init(lru_cache_t &lru_cache, int max_size);
-void cache_put(lru_cache_t &lru_cache,
-               std::string &clt_req,
-               const Response_msg &resp);
-int cache_get(lru_cache_t &lru_cache,
-              std::string &clt_req,
-              Response_msg &resp);
-void evict_one(lru_cache_t &lru_cache);
-
-void cache_init(lru_cache_t &lru_cache, int max_size) {
-    list_init(&lru_cache.lru_list);
-    lru_cache.curr_size = 0;
-    lru_cache.max_size = max_size;
-}
-
-void cache_put(lru_cache_t &lru_cache,
-               std::string &clt_req,
-               const Response_msg &resp) {
-    DEBUG_PRINT("line %d in cache_put\n", __LINE__);
-    if (lru_cache.curr_size == lru_cache.max_size) {
-        evict_one(lru_cache);
+    void put(const key_t& key, const value_t& value) {
+        auto map_it = _cache_map.find(key);
+        _cache_lru_list.push_front(key_value_pair_t(key, value));
+        if (map_it != _cache_map.end()) {
+            _cache_lru_list.erase(map_it->second);
+            _cache_map.erase(map_it);
+        }
+        _cache_map[key] = _cache_lru_list.begin();
+        if (_cache_map.size() > _max_size) {
+            auto last = _cache_lru_list.end();
+            last--;
+            _cache_lru_list.pop_back();
+            _cache_map.erase(last->first);
+        }
     }
-    lru_cache.curr_size++;
-    DEBUG_PRINT("line %d in cache_put\n", __LINE__);
 
-    node_t *node = (node_t *)malloc(sizeof(node_t) + sizeof(cached_item_t));
-    DEBUG_PRINT("line %d in cache_put\n", __LINE__);
-    cached_item_t *it = (cached_item_t *)(node->data);
-    DEBUG_PRINT("line %d in cache_put\n", __LINE__);
-    it->clt_req = clt_req;
-    DEBUG_PRINT("line %d in cache_put\n", __LINE__);
-    it->resp = resp;
-    DEBUG_PRINT("line %d in cache_put\n", __LINE__);
-    lru_cache.resp_map[clt_req] = node;
-    DEBUG_PRINT("line %d in cache_put\n", __LINE__);
-    add_node_to_head(&lru_cache.lru_list, node);
-}
+    const value_t& get(const key_t& key) {
+        auto map_it = _cache_map.find(key);
+        if (map_it == _cache_map.end()) {
+            // map not found
+        }
+        _cache_lru_list.splice(_cache_lru_list.begin(),
+                               _cache_lru_list,
+                               map_it->second);
+        return map_it->second->second;
+    }
 
-int cache_get(lru_cache_t &lru_cache,
-              std::string &clt_req,
-              Response_msg &resp) {
-    if (lru_cache.resp_map.find(clt_req) == lru_cache.resp_map.end()) return 0;
-    node_t *node = lru_cache.resp_map[clt_req];
-    cached_item_t *it = (cached_item_t *)(node->data);
-    resp = it->resp;
-    delete_link(&lru_cache.lru_list, node);
-    add_node_to_head(&lru_cache.lru_list, node);
-    return 1;
-}
+    bool exist(const key_t& key) {
+        return (_cache_map.find(key) != _cache_map.end());
+    }
 
-void evict_one(lru_cache_t &lru_cache) {
-    lru_cache.curr_size--;
-    node_t *node = pop_last_node(&lru_cache.lru_list);
-    cached_item_t *it = (cached_item_t *)(node->data);
-    lru_cache.resp_map.erase(it->clt_req);
-    free(node);
-}
+    size_t size() {
+        return _max_size;
+    }
+  private:
+    std::list<key_value_pair_t> _cache_lru_list;
+    std::map<key_t, list_iterator_t> _cache_map;
+    size_t _max_size;
+};
 
 #endif /* _LRU_CACHE_H_ */

@@ -517,6 +517,26 @@
 			]
 		]
 	},
+	"buffers":
+	[
+		{
+			"file": "src/myserver/lru_cache.h",
+			"settings":
+			{
+				"buffer_size": 968,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"contents": "/* \n * File:   lrucache.hpp\n * Author: Alexander Ponomarev\n *\n * Created on June 20, 2013, 5:09 PM\n */\n\n#ifndef _LRUCACHE_HPP_INCLUDED_\n#define _LRUCACHE_HPP_INCLUDED_\n\n#include <unordered_map>\n#include <list>\n#include <cstddef>\n#include <stdexcept>\n\nnamespace cache {\n\ntemplate<typename key_t, typename value_t>\nclass lru_cache {\npublic:\n    typedef typename std::pair<key_t, value_t> key_value_pair_t;\n    typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;\n\n    lru_cache(size_t max_size) :\n        _max_size(max_size) {\n    }\n    \n    void put(const key_t& key, const value_t& value) {\n        auto it = _cache_items_map.find(key);\n        _cache_items_list.push_front(key_value_pair_t(key, value));\n        if (it != _cache_items_map.end()) {\n            _cache_items_list.erase(it->second);\n            _cache_items_map.erase(it);\n        }\n        _cache_items_map[key] = _cache_items_list.begin();\n        \n        if (_cache_items_map.size() > _max_size) {\n            auto last = _cache_items_list.end();\n            last--;\n            _cache_items_map.erase(last->first);\n            _cache_items_list.pop_back();\n        }\n    }\n    \n    const value_t& get(const key_t& key) {\n        auto it = _cache_items_map.find(key);\n        if (it == _cache_items_map.end()) {\n            throw std::range_error(\"There is no such key in cache\");\n        } else {\n            _cache_items_list.splice(_cache_items_list.begin(), _cache_items_list, it->second);\n            return it->second->second;\n        }\n    }\n    \n    bool exists(const key_t& key) const {\n        return _cache_items_map.find(key) != _cache_items_map.end();\n    }\n    \n    size_t size() const {\n        return _cache_items_map.size();\n    }\n    \nprivate:\n    std::list<key_value_pair_t> _cache_items_list;\n    std::unordered_map<key_t, list_iterator_t> _cache_items_map;\n    size_t _max_size;\n};\n\n} // namespace lru\n\n#endif  /* _LRUCACHE_HPP_INCLUDED_ */",
+			"settings":
+			{
+				"buffer_size": 1949,
+				"line_ending": "Unix"
+			}
+		}
+	],
 	"build_system": "",
 	"build_system_choices":
 	[
@@ -580,17 +600,23 @@
 		"side_bar_visible": false,
 		"status_bar_visible": false
 	},
+	"expanded_folders":
+	[
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4",
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src",
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver"
+	],
 	"file_history":
 	[
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/a4.sublime-project",
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/list.h",
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/lru_cache.h",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/worker_sche_queue.h",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/asst4harness/worker/work_engine.cpp",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/asst4harness/types/messages.cpp",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/asst4include/server/messages.h",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/a4.sublime-project",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/worker.cpp",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/master.cpp",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/list.h",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/lru_cache.h",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/worker_sche_queue.cpp",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/lru_cache.cpp",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/list.c",
@@ -730,6 +756,10 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			"->",
+			"DEBUG_PRINT",
+			"cached_item_t",
+			"fill_sche_queue",
 			"fast_queue_get",
 			"get_req",
 			"DEBUG_PRINT",
@@ -853,11 +883,7 @@
 			"eax",
 			" ",
 			"addl",
-			"curr_esp",
-			"magic",
-			"fork",
-			"pop",
-			"push"
+			"curr_esp"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -897,6 +923,263 @@
 		"whole_word": false,
 		"wrap": false
 	},
+	"groups":
+	[
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "src/myserver/lru_cache.h",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 968,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								124,
+								124
+							]
+						],
+						"settings":
+						{
+							"bracket_highlighter.busy": false,
+							"bracket_highlighter.locations":
+							{
+								"close":
+								{
+									"1":
+									[
+										123,
+										124
+									]
+								},
+								"icon":
+								{
+									"1":
+									[
+										"Packages/BracketHighlighter/icons/double_quote.png",
+										"brackethighlighter.default"
+									]
+								},
+								"open":
+								{
+									"1":
+									[
+										105,
+										106
+									]
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.regions":
+							[
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content"
+							],
+							"incomplete_sync": null,
+							"remote_loading": false,
+							"synced": false,
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				}
+			]
+		},
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 1,
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1949,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1810,
+								1823
+							]
+						],
+						"settings":
+						{
+							"bracket_highlighter.busy": false,
+							"bracket_highlighter.locations":
+							{
+								"close":
+								{
+									"1":
+									[
+										1888,
+										1889
+									]
+								},
+								"icon":
+								{
+									"1":
+									[
+										"Packages/BracketHighlighter/icons/curly_bracket.png",
+										"brackethighlighter.default"
+									]
+								},
+								"open":
+								{
+									"1":
+									[
+										329,
+										330
+									]
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.regions":
+							[
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content"
+							],
+							"default_dir": "/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4",
+							"incomplete_sync": null,
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 6.0,
+						"translation.y": 470.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				}
+			]
+		}
+	],
 	"incremental_find":
 	{
 		"height": 30.0
@@ -952,6 +1235,7 @@
 		"height": 144.0
 	},
 	"pinned_build_system": "",
+	"project": "a4.sublime-project",
 	"replace":
 	{
 		"height": 56.0
@@ -988,6 +1272,7 @@
 		],
 		"width": 0.0
 	},
+	"selected_group": 0,
 	"settings":
 	{
 	},
@@ -995,7 +1280,7 @@
 	"show_open_files": false,
 	"show_tabs": true,
 	"side_bar_visible": true,
-	"side_bar_width": 209.0,
+	"side_bar_width": 182.0,
 	"status_bar_visible": true,
 	"template_settings":
 	{

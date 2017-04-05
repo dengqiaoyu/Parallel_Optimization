@@ -202,7 +202,7 @@ void *worker_exec_request_pthread(void *tid_ptr) {
     int wait_if_zero = 0;
     // exit(-1);
     Request_msg req;
-    int i = 0;
+    int i_test = 0;
     while (1) {
         while (1) {
             ret = get_req(&wstate, req, wait_if_zero);
@@ -213,13 +213,15 @@ void *worker_exec_request_pthread(void *tid_ptr) {
             }
             wait_if_zero = 1;
         }
+        DEBUG_PRINT("Going to work on request %d, arg: %s\n",
+                    req.get_tag(),
+                    req.get_request_string().c_str());
         work_on_req(req);
-        i++;
     }
 
     return NULL;
 }
-int iiii_global = 0;
+
 int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
     int ret = 0;
     // ret = increase_running_req_cnt(wstate, TELLMENOW);
@@ -231,7 +233,6 @@ int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
                              wait_if_zero,
                              &wstate->waiting_cond);
         if (ret) return 1;
-        DEBUG_PRINT("wait_if_zero: %d\n", wait_if_zero);
         // else decrease_running_req_cnt(wstate, TELLMENOW);
     }
 
@@ -248,8 +249,6 @@ int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
 
     ret = sche_queue_get(&wstate->sche_queue, req, &wstate->fifo_queue);
     if (ret) {
-        iiii_global++;
-        DEBUG_PRINT("sche_queue_get should only return 1 once\n");
         return 1;
     }
     return 0;

@@ -1,2 +1,6 @@
 {"time": 0, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
+{"time": 100, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
+{"time": 200, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
+{"time": 300, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
+{"time": 400, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
 {"time": 500, "work": "cmd=lastrequest", "resp": "ack" }
