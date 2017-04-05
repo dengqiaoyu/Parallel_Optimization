@@ -309,6 +309,8 @@ void work_on_req(const Request_msg& req) {
     execute_work(req, resp);
     DEBUG_PRINT("worker %d is going to send resp: %s for req %d to master\n",
                 wstate.worker_id, resp.get_response().c_str(), req.get_tag());
+    if (req.get_arg("cmd").compare("projectidea") == 0)
+        decrease_running_req_cnt(&wstate, PROJECTIDEA);
     worker_send_response(resp);
 }
 

@@ -177,6 +177,7 @@ void handle_comppri_response(Worker_handle worker_handle,
             break;
         }
     }
+    mstate.comppri_map[main_tag] = comppri_item;
 
     int if_completed = 1;
     for (int i = 0; i < COMPPRI_NUM; i++) {
@@ -276,7 +277,7 @@ void handle_compareprimes_req(Client_handle &client_handle,
     comppri_item.params[2] = atoi(client_req.get_arg("n3").c_str());
     comppri_item.params[3] = atoi(client_req.get_arg("n4").c_str());
 
-    int if_cached[COMPPRI_NUM];
+    int if_cached[COMPPRI_NUM] = {0};
     int cnt_cached[COMPPRI_NUM];
     for (int i = 0; i < COMPPRI_NUM; i++) {
         Request_msg dummy_req(0);

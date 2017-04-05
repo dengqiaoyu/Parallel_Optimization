@@ -9,7 +9,7 @@
 #include "return_error.h"
 #include "request_type_def.h"
 
-#define DEFAULT_COMPLEXITY 1000000
+#define DEFAULT_COMPLEXITY 1000011
 #define SCHEDULER_LENGTH 64
 
 // #define DEBUG
