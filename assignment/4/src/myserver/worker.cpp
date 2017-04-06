@@ -20,9 +20,8 @@
 #define DEBUG_PRINT(...)
 #endif
 
-#define MAX_RUNNING_TELLMENOW 4
 #define MAX_RUNNING_PROJECTIDEA 2
-#define NUM_THREAD_NUM 48
+#define NUM_THREAD_NUM 24
 
 int tid[NUM_THREAD_NUM];
 
@@ -226,7 +225,7 @@ void *worker_exec_request_pthread(void *tid_ptr) {
 
 int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
     int ret = 0;
-    // ret = increase_running_req_cnt(wstate, TELLMENOW);
+
     ret = 1;
     if (ret) {
         ret = fast_queue_get(&wstate->fast_queue,
@@ -238,6 +237,7 @@ int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
         // else decrease_running_req_cnt(wstate, TELLMENOW);
     }
 
+    // ret = increase_running_req_cnt(wstate, TELLMENOW);
     ret = increase_running_req_cnt(wstate, PROJECTIDEA);
     if (ret) {
         ret = fast_queue_get(&wstate->fast_queue,

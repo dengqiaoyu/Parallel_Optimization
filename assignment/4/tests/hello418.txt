@@ -1,5 +1,2 @@
-{"time": 0, "work": "cmd=compareprimes;n1=803182;n2=837769;n3=603566;n4=668229", "resp": "There are more primes in second range."}
-{"time": 500, "work": "cmd=compareprimes;n1=661974;n2=704510;n3=621325;n4=813520", "resp": "There are more primes in second range."}
-{"time": 1000, "work": "cmd=compareprimes;n1=624059;n2=791933;n3=773594;n4=859536", "resp": "There are more primes in first range."}
-{"time": 1500, "work": "cmd=compareprimes;n1=604197;n2=822011;n3=505616;n4=719480", "resp": "There are more primes in first range."}
-{"time": 2000, "work": "cmd=lastrequest", "resp": "ack" }
+{"time": 0, "work": "cmd=418wisdom;x=1", "resp": "OMG, 418 is so gr8!"}
+{"time": 500, "work": "cmd=lastrequest", "resp": "ack" }
