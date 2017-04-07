@@ -38,11 +38,11 @@
 #define COMPPRI_NUM 4
 #define MAX_CACHE_SIZE 100000
 #define MAX_RUNNING_PROJECTIDEA 2
-#define SCALEOUT_THRESHOLD 20
+#define SCALEOUT_THRESHOLD 22
 #define SCALEIN_THRESHOLD 15
 #define NUM_THREAD_NUM 36
 #define NUM_CONTEXT 24
-#define MIN_TIME_BEFORE_GET_KILLED 3
+#define MIN_TIME_BEFORE_GET_KILLED 2
 #define MIN_TIME_BEFORE_NEXT_WORKER 0
 #define INITIAL_WORKER_NUM 1
 
@@ -517,35 +517,36 @@ void handle_tick() {
 }
 
 int ck_scale_cond() {
-    int ave_cpu_intensive = mstate.num_cpu_intensive / mstate.num_workers_recv;
+    int num_workers_recv = mstate.num_workers_recv;
+    int num_workers_run = num_workers_run;
+    int ave_cpu_intensive = mstate.num_cpu_intensive / num_workers_recv;
     int remaining_proj = 0;
-    for (int i = mstate.num_workers_recv; i < mstate.num_workers_run; i++) {
+    for (int i = num_workers_recv; i < num_workers_run; i++) {
         int worker_idx = mstate.idx_array[i];
         remaining_proj +=
             mstate.my_worker[worker_idx].num_request_each_type[PROJECTIDEA];
     }
     int num_projectidea_now = mstate.num_projectidea - remaining_proj;
-    int num_slots_proj = mstate.num_workers_run * MAX_RUNNING_PROJECTIDEA;
+    int num_slots_proj = num_workers_run * MAX_RUNNING_PROJECTIDEA;
     int remaining_slots = num_slots_proj - num_projectidea_now;
-    LOG_PRINT("num_projectidea: %d, mstate.num_workers_recv: %d",
-              num_projectidea_now, mstate.num_workers_recv);
+    LOG_PRINT("num_projectidea: %d, num_workers_recv: %d",
+              num_projectidea_now, num_workers_recv);
     LOG_PRINT("remaining_slots: %d\n", remaining_slots);
     LOG_PRINT("ave_cpu_intensive: %d, \n", ave_cpu_intensive);
-    LOG_PRINT("mstate.num_workers_recv: %d, \n", mstate.num_workers_recv);
+    LOG_PRINT("num_workers_recv: %d, \n", num_workers_recv);
     LOG_PRINT("mstate.if_scaling_out: %d\n", mstate.if_scaling_out);
 
     if (mstate.if_scaling_out) {
         return 0;
     }
-    if (mstate.num_workers_recv < mstate.max_num_workers
+    if (num_workers_recv < mstate.max_num_workers
             && mstate.time_since_last_new >= MIN_TIME_BEFORE_NEXT_WORKER) {
         if (ave_cpu_intensive >= SCALEOUT_THRESHOLD
-                || (remaining_slots <= 2 && mstate.num_workers_run > 1)
-                || (remaining_slots <= 1 && mstate.num_workers_run == 1)) {
+                || (remaining_slots <= num_workers_run)) {
             return 1;
         }
     }
-    if (mstate.num_workers_recv > 1) {
+    if (num_workers_recv > 1) {
         if (ave_cpu_intensive < SCALEIN_THRESHOLD && remaining_slots >= 3) {
             return -1;
         }
