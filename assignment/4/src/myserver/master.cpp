@@ -40,7 +40,9 @@
 #define MAX_RUNNING_PROJECTIDEA 2
 #define SCALEOUT_THRESHOLD 20
 #define SCALEIN_THRESHOLD 15
-#define MIN_TIME_BEFORE_GET_KILLED 2
+#define NUM_THREAD_NUM 36
+#define NUM_CONTEXT 24
+#define MIN_TIME_BEFORE_GET_KILLED 3
 #define MIN_TIME_BEFORE_NEXT_WORKER 0
 #define INITIAL_WORKER_NUM 1
 
@@ -437,6 +439,16 @@ int get_next_worker_idx(int request_type) {
             }
         }
     }
+    if (get_num_cpu_intensive_per_worker(worker_idx) >= NUM_CONTEXT - MAX_RUNNING_PROJECTIDEA
+            && (request_type == WISDOM418 || COUNTERPRIMES)
+            && num_recv < num_run) {
+        LOG_PRINT("#################\n");
+        LOG_PRINT("RESTART a killing worker in get_idx\n");
+        LOG_PRINT("#################\n");
+        worker_idx = mstate.idx_array[num_recv];
+        mstate.my_worker[worker_idx].time_to_be_killed = -1;
+        mstate.num_workers_recv++;
+    }
     if (worker_idx != proj_worker_idx) {
         LOG_PRINT("#################\n");
         LOG_PRINT("Give projectidea to a killing worker\n");
@@ -444,46 +456,7 @@ int get_next_worker_idx(int request_type) {
         worker_idx = proj_worker_idx;
     }
 
-    // if (request_type == PROJECTIDEA && worker_idx != proj_worker_idx) {
 
-    // }
-    // for (int i = 0; i < mstate.num_workers_run; i++) {
-    //     int new_worker_idx = i;
-    //     if (mstate.my_worker[new_worker_idx].time_to_be_killed != -1
-    //             && request_type != PROJECTIDEA)
-    //         break;
-    //     int new_request_num =
-    //         mstate.my_worker[new_worker_idx].num_request_each_type[request_type];
-    //     if (request_type == PROJECTIDEA
-    //             && new_request_num < MAX_RUNNING_PROJECTIDEA
-    //             && new_worker_idx >= mstate.num_workers_recv) {
-    //         min_num_request = new_request_num;
-    //         worker_idx = new_worker_idx;
-    //         break;
-    //     }
-    //     if (new_request_num < min_num_request) {
-    //         min_num_request = new_request_num;
-    //         worker_idx = new_worker_idx;
-    //     }
-    // }
-
-    // if (request_type == PROJECTIDEA) {
-    //     printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
-    //     for (int i = 0; i < mstate.num_workers_run; i++) {
-    //         printf("project idea: %d, time: %d\n",
-    //                mstate.my_worker[i].num_request_each_type[request_type],
-    //                mstate.my_worker[i].time_to_be_killed);
-    //     }
-    //     printf("Choossing worker %d\n", worker_idx);
-    //     printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
-    // }
-
-    // if (mstate.my_worker[worker_idx].time_to_be_killed != -1) {
-    //     LOG_PRINT("PULL back a worker\n");
-    //     for (int i = 0; i <= worker_idx; i++) {
-    //         mstate.my_worker[i].time_to_be_killed = -1;
-    //     }
-    // }
     mstate.my_worker[worker_idx].num_request_each_type[request_type]++;
     return worker_idx;
 }
@@ -503,6 +476,17 @@ int get_next_worker_idx_countprimes(int n) {
             worker_idx = new_worker_idx;
         }
     }
+
+    if (get_num_cpu_intensive_per_worker(worker_idx) >= NUM_CONTEXT - MAX_RUNNING_PROJECTIDEA
+            && mstate.num_workers_recv < mstate.num_workers_run) {
+        LOG_PRINT("#################\n");
+        LOG_PRINT("RESTART a killing worker in get_idx_countprimes\n");
+        LOG_PRINT("#################\n");
+        worker_idx = mstate.idx_array[mstate.num_workers_recv];
+        mstate.my_worker[worker_idx].time_to_be_killed = -1;
+        mstate.num_workers_recv++;
+    }
+
     mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES]++;
     mstate.my_worker[worker_idx].sum_primes_countprimes += n;
     return worker_idx;
@@ -555,12 +539,14 @@ int ck_scale_cond() {
     }
     if (mstate.num_workers_recv < mstate.max_num_workers
             && mstate.time_since_last_new >= MIN_TIME_BEFORE_NEXT_WORKER) {
-        if (ave_cpu_intensive >= SCALEOUT_THRESHOLD || remaining_slots <= 1) {
+        if (ave_cpu_intensive >= SCALEOUT_THRESHOLD
+                || (remaining_slots <= 2 && mstate.num_workers_run > 1)
+                || (remaining_slots <= 1 && mstate.num_workers_run == 1)) {
             return 1;
         }
     }
     if (mstate.num_workers_recv > 1) {
-        if (ave_cpu_intensive < SCALEIN_THRESHOLD && remaining_slots >= 2) {
+        if (ave_cpu_intensive < SCALEIN_THRESHOLD && remaining_slots >= 3) {
             return -1;
         }
     }
