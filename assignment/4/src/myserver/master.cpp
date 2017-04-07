@@ -20,7 +20,7 @@
 #define DEBUG_PRINT(...)
 #endif
 
-// #define LOG_P
+#define LOG_P
 #ifdef LOG_P
 #define LOG_PRINT printf
 #else
@@ -42,9 +42,9 @@
 #define SCALEIN_THRESHOLD 15
 #define NUM_THREAD_NUM 36
 #define NUM_CONTEXT 24
-#define MIN_TIME_BEFORE_GET_KILLED 2
+#define MIN_TIME_BEFORE_GET_KILLED 1
 #define MIN_TIME_BEFORE_NEXT_WORKER 0
-#define INITIAL_WORKER_NUM 1
+#define INITIAL_WORKER_NUM 2
 
 typedef struct comppri_item {
     int params[COMPPRI_NUM];
