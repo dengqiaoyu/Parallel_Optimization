@@ -4,16 +4,68 @@
 		"selected_items":
 		[
 			[
+				"max",
+				"max_num_workers"
+			],
+			[
+				"num",
+				"num_workers_run"
+			],
+			[
+				"num_wrk",
+				"num_workers_recv"
+			],
+			[
+				"num_work",
+				"num_workers_run"
+			],
+			[
+				"num_worker",
+				"num_workers_plan"
+			],
+			[
+				"if_",
+				"if_scaling_out"
+			],
+			[
+				"log",
+				"LOG_PRINT"
+			],
+			[
+				"map",
+				"worker_idx_map"
+			],
+			[
+				"wor",
+				"worker_handle"
+			],
+			[
+				"time",
+				"time_to_be_killed"
+			],
+			[
+				"update",
+				"update_time"
+			],
+			[
+				"worker_idx",
+				"worker_idx_map"
+			],
+			[
+				"worker",
+				"worker_tag"
+			],
+			[
+				"pl",
+				"plan_num_workers"
+			],
+			[
 				"num_",
 				"num_workers"
 			],
 			[
 				"request",
 				"request_type"
-			],
-			[
-				"num",
-				"num_cpu_intensive"
 			],
 			[
 				"LOG",
@@ -462,73 +514,9 @@
 			[
 				"vir",
 				"virus_col"
-			],
-			[
-				"move_",
-				"move_virus"
-			],
-			[
-				"best",
-				"best_record"
-			],
-			[
-				"call",
-				"calloc"
-			],
-			[
-				"game",
-				"game_session"
-			],
-			[
-				"player",
-				"player_col"
-			],
-			[
-				"expectd",
-				"expected_row"
-			],
-			[
-				"pal",
-				"player_row"
-			],
-			[
-				"ori_",
-				"ori_player_row"
-			],
-			[
-				"pl",
-				"player_row"
-			],
-			[
-				"put",
-				"putbyte"
-			],
-			[
-				"abs",
-				"abs_virus_col"
-			],
-			[
-				"offset",
-				"offset_row"
-			],
-			[
-				"ori",
-				"ori_player_col"
 			]
 		]
 	},
-	"buffers":
-	[
-		{
-			"file": "src/myserver/master.cpp",
-			"settings":
-			{
-				"buffer_size": 17724,
-				"encoding": "UTF-8",
-				"line_ending": "Unix"
-			}
-		}
-	],
 	"build_system": "",
 	"build_system_choices":
 	[
@@ -592,14 +580,11 @@
 		"side_bar_visible": false,
 		"status_bar_visible": false
 	},
-	"expanded_folders":
-	[
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver"
-	],
 	"file_history":
 	[
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/sftp-config.json",
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/tests/grading_nonuniform2.txt",
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/master.cpp",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/a4.sublime-project",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/lru_cache.h",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/worker_sche_queue.h",
@@ -609,7 +594,6 @@
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/asst4harness/types/messages.cpp",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/asst4include/server/messages.h",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/worker.cpp",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/master.cpp",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/worker_sche_queue.cpp",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/lru_cache.cpp",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/list.c",
@@ -666,7 +650,6 @@
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/kern/allocator.c",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/kern/asm_handlers.S",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/410user/progs/merchant.c",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/sftp-config.json",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/410user/progs/bistromath.c",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/kern/asm_get_eip_next.h",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/kern/asm_page_inval.h",
@@ -726,8 +709,7 @@
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/410kern/boot/multiboot.h",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/410kern/lmm/lmm.h",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/user/inc/cond_type.h",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/kern/fake_console.c",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/user/libthread/panic.c"
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Operating_System_Design_and_Implementation_15-605/repo_group/p3/kern/fake_console.c"
 	],
 	"find":
 	{
@@ -748,6 +730,41 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			"LOG2_PRINT",
+			"LOG_PRINT",
+			"printf_worker_info",
+			"num_workers_run",
+			"num_workers_plan",
+			"if_scaling_out",
+			"mstate.plan_num_workers",
+			"max_num_workers",
+			"new_worker_idx",
+			"plan_num_workers",
+			"scale_in",
+			"time_since_last_new",
+			"num_projectidea",
+			"scale_out",
+			"time_to_be_killed = -1;",
+			"min_num_request",
+			"plan_num_workers",
+			"handle_compareprimes_req",
+			"num_cpu_intensive",
+			"DEBUG2_PRINT",
+			"LOG",
+			"kill_worker",
+			"num_workers",
+			"scale_out",
+			"update_time",
+			"kill_worker",
+			"num_works_total",
+			"j",
+			"void scale_in",
+			"void scale_out",
+			"int scale_in",
+			"int scale_out",
+			"plan_num_workers",
+			"j",
+			"i",
 			"my_worker_info",
 			"num_workers",
 			"fifo_queue_t",
@@ -840,42 +857,7 @@
 			"fifo_queue_put",
 			"enqueue_request",
 			"get_next_worker_idx",
-			"...",
-			"work_id",
-			"\"name\"",
-			"handle_compareprimes_req",
-			"evict_one",
-			"worker_exec_request_pthread",
-			", NULL);",
-			"}\n",
-			"work_on_req",
-			"fifo_queue_put",
-			"enqueue_request",
-			"handle_client_request",
-			"handle_compareprimes_req",
-			"req_created",
-			"handle_compareprimes_req",
-			"get_next_worker_idx_counterprimes",
-			"handle_compareprimes_req",
-			"}\n",
-			");\n",
-			"handle_comppri_response",
-			"gettid",
-			"execute_compareprimes",
-			"resp",
-			"create_computeprimes_req",
-			"4",
-			"0",
-			"params",
-			"req",
-			"my_worker",
-			"s to i",
-			"execute_compareprimes",
-			"TELLMENOW",
-			"runnning",
-			"pthread_mutex_unlock",
-			"pthread_mutex_lock",
-			"sche_queue"
+			"..."
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -916,142 +898,6 @@
 		"whole_word": false,
 		"wrap": false
 	},
-	"groups":
-	[
-		{
-			"selected": 0,
-			"sheets":
-			[
-				{
-					"buffer": 0,
-					"file": "src/myserver/master.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 17724,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								2330,
-								2330
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										2402,
-										2403
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/round_bracket.png",
-										"brackethighlighter.default"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										2246,
-										2247
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content"
-							],
-							"incomplete_sync": null,
-							"remote_loading": false,
-							"synced": false,
-							"syntax": "Packages/C++/C++.sublime-syntax",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 1466.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 0,
-					"type": "text"
-				}
-			]
-		},
-		{
-			"sheets":
-			[
-			]
-		}
-	],
 	"incremental_find":
 	{
 		"height": 30.0
@@ -1107,7 +953,6 @@
 		"height": 144.0
 	},
 	"pinned_build_system": "",
-	"project": "a4.sublime-project",
 	"replace":
 	{
 		"height": 56.0
@@ -1144,7 +989,6 @@
 		],
 		"width": 0.0
 	},
-	"selected_group": 1,
 	"settings":
 	{
 	},

@@ -21,7 +21,7 @@
 #endif
 
 #define MAX_RUNNING_PROJECTIDEA 2
-#define NUM_THREAD_NUM 24
+#define NUM_THREAD_NUM 36
 
 int tid[NUM_THREAD_NUM];
 
