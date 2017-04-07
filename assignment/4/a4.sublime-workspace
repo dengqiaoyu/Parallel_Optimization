@@ -4,6 +4,10 @@
 		"selected_items":
 		[
 			[
+				"num_Wor",
+				"num_workers_run"
+			],
+			[
 				"num_wor",
 				"num_workers_plan"
 			],
@@ -510,72 +514,9 @@
 			[
 				"game_sess",
 				"game_session"
-			],
-			[
-				"abs_",
-				"abs_src_row"
 			]
 		]
 	},
-	"buffers":
-	[
-		{
-			"contents": "// #include <glog/logging.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string>\n#include <map>\n#include <sstream>\n#include <stdlib.h>\n\n#include \"server/messages.h\"\n#include \"server/master.h\"\n#include \"server/worker.h\"\n#include \"tools/work_queue.h\"\n#include \"request_type_def.h\"\n#include \"lru_cache.h\"\n\n// #define DEBUG\n#ifdef DEBUG\n#define DEBUG_PRINT printf\n#else\n#define DEBUG_PRINT(...)\n#endif\n\n#define LOG_P\n#ifdef LOG_P\n#define LOG_PRINT printf\n#else\n#define LOG_PRINT(...)\n#endif\n\n// #define DEBUG2\n#ifdef DEBUG2\n#define DEBUG2_PRINT printf\n#else\n#define DEBUG2_PRINT(...)\n#endif\n\n#define MAX_WORKERS 8\n#define COMPPRI_NUM 4\n#define MAX_CACHE_SIZE 100000\n#define MAX_RUNNING_PROJECTIDEA 2\n#define SCALEOUT_THRESHOLD 24\n#define SCALEIN_THRESHOLD 10\n#define MIN_TIME_BEFORE_GET_KILLED 2\n#define MIN_TIME_BEFORE_NEXT_WORKER 0\n#define INITIAL_WORKER_NUM 1\n\ntypedef struct comppri_item {\n    int params[COMPPRI_NUM];\n    int counts[COMPPRI_NUM];\n} comppri_item_t;\n\ntypedef struct client_request_item {\n    Client_handle client_handle;\n    Request_msg client_req;\n    int counter_primes_n;\n    int request_type;\n    int worker_idx;\n    int idx_if_compppri;\n} client_request_item_t;\n\ntypedef struct my_worker_info {\n    Worker_handle worker;\n    int num_request_each_type[NUM_TYPES];\n    int sum_primes_countprimes;\n    int time_to_be_killed;\n} my_worker_info_t;\n\nstatic struct Master_state {\n\n    // The mstate struct collects all the master node state into one\n    // place.  You do not need to preserve any of the fields below, they\n    // exist only to implement the basic functionality of the starter\n    // code.\n\n    bool server_ready;\n    int max_num_workers;\n    int next_request_tag;\n\n    my_worker_info_t my_worker[MAX_WORKERS];\n    int num_workers_run;\n    int num_workers_recv;\n    int num_workers_plan;\n    int idx_array[MAX_WORKERS];\n\n    std::map<int, client_request_item_t> response_client_map;\n    std::map<int, comppri_item_t> comppri_map;\n\n    int num_cpu_intensive;\n    int num_projectidea;\n    int time_since_last_new;\n    int if_booted;\n    int if_scaling_out;\n} mstate;\n\nlru_cache<std::string, Response_msg> master_cache(MAX_CACHE_SIZE);\n\nvoid handle_compareprimes_req(Client_handle &client_handle,\n                              const Request_msg &client_req);\nint get_next_worker_idx(int request_type);\nint get_next_worker_idx_countprimes(int n);\nstatic void create_computeprimes_req(Request_msg& req, int n);\nvoid handle_comppri_response(Worker_handle worker_handle,\n                             const Response_msg& resp,\n                             client_request_item_t &client_request_item);\nvoid printf_worker_info();\n\nvoid update_time();\nint ck_scale_cond();\nint scale_out();\nint scale_in();\nvoid kill_worker();\nvoid clear_worker_info(int worker_idx);\nint get_works_num(int worker_idx);\nint get_num_cpu_intensive_per_worker(int worker_id);\nint get_num_projectidea_per_worker(int worker_id);\n\nvoid master_node_init(int max_workers, int& tick_period) {\n\n    // WorkQueue<client_request_item_t> queue = WorkQueue();\n    // set up tick handler to fire every 5 seconds. (feel free to\n    // configure as you please)\n    tick_period = 1;\n    mstate.max_num_workers = max_workers;\n    mstate.next_request_tag = 0;\n    mstate.time_since_last_new = 0;\n    mstate.if_booted = 0;\n    mstate.if_scaling_out = 0;\n\n    for (int i = 0; i < max_workers; i++) {\n        mstate.my_worker[i].worker = NULL;\n        for (int j = 0; j < NUM_TYPES; j++)\n            mstate.my_worker[i].num_request_each_type[j] = 0;\n        mstate.my_worker[i].sum_primes_countprimes = 0;\n        mstate.my_worker[i].time_to_be_killed = -1;\n    }\n    mstate.num_workers_plan = INITIAL_WORKER_NUM;\n    mstate.num_workers_run = 0;\n    mstate.num_workers_recv = 0;\n\n\n    // don't mark the server as ready until the server is ready to go.\n    // This is actually when the first worker is up and running, not\n    // when 'master_node_init' returnes\n    mstate.server_ready = false;\n\n    // fire off a request for a new worker\n\n    std::string name_field = \"worker_id\";\n    for (int i = 0; i < mstate.num_workers_plan; i++) {\n        int worker_idx = get_free_idx();\n        mstate.idx_array[i] = worker_idx;\n        Request_msg req(worker_idx);\n        std::string id = std::to_string(worker_idx);\n        // printf(\"worker id %s in master\", id);\n        req.set_arg(name_field, id);\n        request_new_worker_node(req);\n    }\n}\n\nvoid handle_new_worker_online(Worker_handle worker_handle, int tag) {\n\n    // 'tag' allows you to identify which worker request this response\n    // corresponds to.  Since the starter code only sends off one new\n    // worker request, we don't use it here.\n\n    // DEBUG_PRINT(\"worker %d\\n\", tag);\n    mstate.num_workers_run++;\n    mstate.num_workers_recv++;\n    int idx = tag;\n    mstate.my_worker[idx].worker = worker_handle;\n    mstate.my_worker[idx].sum_primes_countprimes = 0;\n    mstate.my_worker[idx].time_to_be_killed = -1;\n\n    LOG_PRINT(\"########################\\n\");\n    LOG_PRINT(\"New node online\\n\");\n    LOG_PRINT(\"########################\\n\");\n    // Now that a worker is booted, let the system know the server is\n    // ready to begin handling client requests.  The test harness will\n    // now start its timers and start hitting your server with requests.\n    if (mstate.if_booted && mstate.num_workers_run == mstate.num_workers_plan) {\n        mstate.if_scaling_out = 0;\n    }\n    if (!mstate.if_booted && mstate.num_workers_run == mstate.num_workers_plan) {\n        server_init_complete();\n        mstate.server_ready = true;\n        mstate.if_booted = 1;\n    }\n}\n\nvoid handle_worker_response(Worker_handle worker_handle, const Response_msg& resp) {\n\n    // Master node has received a response from one of its workers.\n    // Here we directly return this response to the client.\n\n    DLOG(INFO) << \"Master received a response from a worker: [\" << resp.get_tag() << \":\" << resp.get_response() << \"]\" << std::endl;\n\n    // send_client_response(mstate.waiting_client, resp);\n\n    // mstate.num_pending_client_requests = 0;\n    int request_tag = resp.get_tag();\n    client_request_item_t client_request_item =\n        mstate.response_client_map[request_tag];\n    int request_type = client_request_item.request_type;\n    if (request_type == WISDOM418 || request_type == COUNTERPRIMES) {\n        mstate.num_cpu_intensive--;\n    } else if (request_type == COMPAREPRIMES) {\n        mstate.num_cpu_intensive--;\n        return handle_comppri_response(worker_handle,\n                                       resp, client_request_item);\n    } else if (request_type == PROJECTIDEA) {\n        mstate.num_projectidea--;\n    }\n    int worker_idx = client_request_item.worker_idx;\n    int counter_primes_n = client_request_item.counter_primes_n;\n    mstate.my_worker[worker_idx].num_request_each_type[request_type]--;\n    if (request_type == COUNTERPRIMES)\n        mstate.my_worker[worker_idx].sum_primes_countprimes -= counter_primes_n;\n    mstate.response_client_map.erase(request_tag);\n    std::string req_desp = client_request_item.client_req.get_request_string();\n    master_cache.put(req_desp, resp);\n    DEBUG_PRINT(\"resp: %s in handle_worker_response is put into cache\\n\",\n                req_desp.c_str());\n    send_client_response(client_request_item.client_handle, resp);\n}\n\nvoid handle_comppri_response(Worker_handle worker_handle,\n                             const Response_msg& resp,\n                             client_request_item_t &client_request_item) {\n    int request_tag = resp.get_tag();\n    int worker_idx = client_request_item.worker_idx;\n    int counter_primes_n = client_request_item.counter_primes_n;\n    int main_tag = client_request_item.idx_if_compppri;\n    int count = atoi(resp.get_response().c_str());\n    mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES] -= 1;\n    mstate.my_worker[worker_idx].sum_primes_countprimes -= counter_primes_n;\n\n    comppri_item_t comppri_item;\n    comppri_item = mstate.comppri_map[main_tag];\n    for (int i = 0; i < COMPPRI_NUM; i++) {\n        if (comppri_item.params[i] == counter_primes_n) {\n            comppri_item.counts[i] = count;\n            break;\n        }\n    }\n    mstate.comppri_map[main_tag] = comppri_item;\n\n    int if_completed = 1;\n    for (int i = 0; i < COMPPRI_NUM; i++) {\n        if (comppri_item.counts[i] == -1) {\n            if_completed = 0;\n            break;\n        }\n    }\n\n    if (if_completed) {\n        Response_msg resp_comppri;\n        if (comppri_item.counts[1] - comppri_item.counts[0] > \\\n                comppri_item.counts[3] - comppri_item.counts[2])\n            resp_comppri.set_response(\"There are more primes in first range.\");\n        else\n            resp_comppri.set_response(\"There are more primes in second range.\");\n        std::string req_desp =\n            client_request_item.client_req.get_request_string();\n        master_cache.put(req_desp, resp_comppri);\n        send_client_response(client_request_item.client_handle, resp_comppri);\n        mstate.comppri_map.erase(main_tag);\n    }\n    mstate.response_client_map.erase(request_tag);\n}\n\nvoid handle_client_request(Client_handle client_handle, const Request_msg& client_req) {\n\n    DLOG(INFO) << \"Received request: \" << client_req.get_request_string() << std::endl;\n\n    DEBUG_PRINT(\"%s\\n\", client_req.get_request_string().c_str());\n    // You can assume that traces end with this special message.  It\n    // exists because it might be useful for debugging to dump\n    // information about the entire run here: statistics, etc.\n    Response_msg cached_resp;\n    std::string cached_req_desp = client_req.get_request_string();\n    if (master_cache.exist(cached_req_desp) == true) {\n        DEBUG_PRINT(\"cache hit, request: %s\\n\",\n                    client_req.get_request_string().c_str());\n        cached_resp = master_cache.get(cached_req_desp);\n        send_client_response(client_handle, cached_resp);\n        return;\n    }\n    if (client_req.get_arg(\"cmd\") == \"lastrequest\") {\n        Response_msg resp(0);\n        resp.set_response(\"ack\");\n        send_client_response(client_handle, resp);\n        return;\n    }\n\n    if (client_req.get_arg(\"cmd\").compare(\"compareprimes\") == 0)\n        return handle_compareprimes_req(client_handle, client_req);\n\n    int request_tag = mstate.next_request_tag++;\n    client_request_item_t client_request_item;\n    client_request_item.client_handle = client_handle;\n    client_request_item.client_req = client_req;\n\n    int worker_idx = 0;\n    // TODO modified for dubug use.\n    if (client_req.get_arg(\"cmd\").compare(\"418wisdom\") == 0) {\n        mstate.num_cpu_intensive++;\n        worker_idx = get_next_worker_idx(WISDOM418);\n        DEBUG_PRINT(\"worker_idx: %d from master\\n\", worker_idx);\n        client_request_item.request_type = WISDOM418;\n    } else if (client_req.get_arg(\"cmd\").compare(\"projectidea\") == 0) {\n        mstate.num_projectidea++;\n        worker_idx = get_next_worker_idx(PROJECTIDEA);\n        client_request_item.request_type = PROJECTIDEA;\n    } else if (client_req.get_arg(\"cmd\").compare(\"tellmenow\") == 0) {\n        worker_idx = get_next_worker_idx(TELLMENOW);\n        client_request_item.request_type = TELLMENOW;\n    } else if (client_req.get_arg(\"cmd\").compare(\"countprimes\") == 0) {\n        mstate.num_cpu_intensive++;\n        int n = atoi(client_req.get_arg(\"n\").c_str());\n        worker_idx = get_next_worker_idx_countprimes(n);\n        client_request_item.request_type = COUNTERPRIMES;\n        client_request_item.counter_primes_n = n;\n    } else {\n        Response_msg resp(0);\n        resp.set_response(\"Oh no! This type of request is not supported by server\");\n        send_client_response(client_handle, resp);\n        mstate.response_client_map.erase(request_tag);\n        return;\n    }\n\n    client_request_item.worker_idx = worker_idx;\n    mstate.response_client_map[request_tag] = client_request_item;\n    Request_msg worker_req(request_tag, client_req);\n    send_request_to_worker(mstate.my_worker[worker_idx].worker, worker_req);\n}\n\nvoid handle_compareprimes_req(Client_handle &client_handle,\n                              const Request_msg &client_req) {\n    int main_tag = mstate.next_request_tag++;\n    int req_tag[COMPPRI_NUM];\n    client_request_item_t clt_req_item[COMPPRI_NUM];\n    comppri_item_t comppri_item;\n    comppri_item.params[0] = atoi(client_req.get_arg(\"n1\").c_str());\n    comppri_item.params[1] = atoi(client_req.get_arg(\"n2\").c_str());\n    comppri_item.params[2] = atoi(client_req.get_arg(\"n3\").c_str());\n    comppri_item.params[3] = atoi(client_req.get_arg(\"n4\").c_str());\n\n    int if_cached[COMPPRI_NUM] = {0};\n    int cnt_cached[COMPPRI_NUM];\n    for (int i = 0; i < COMPPRI_NUM; i++) {\n        Request_msg dummy_req(0);\n        Response_msg dummy_resp(0);\n        create_computeprimes_req(dummy_req, comppri_item.params[i]);\n        std::string req_desp = dummy_req.get_request_string();\n        if (master_cache.exist(req_desp) == true) {\n            if_cached[i] = 1;\n            dummy_resp = master_cache.get(req_desp);\n            cnt_cached[i] = atoi(dummy_resp.get_response().c_str());\n        }\n    }\n\n\n    for (int i = 0; i < COMPPRI_NUM; i++) {\n        if (if_cached[i]) continue;\n        req_tag[i] = mstate.next_request_tag++;\n        clt_req_item[i].client_handle = client_handle;\n        clt_req_item[i].client_req = client_req;\n        clt_req_item[i].counter_primes_n = comppri_item.params[i];\n        clt_req_item[i].request_type = COMPAREPRIMES;\n        clt_req_item[i].worker_idx =\n            get_next_worker_idx_countprimes(comppri_item.params[i]);\n        clt_req_item[i].idx_if_compppri = main_tag;\n    }\n\n    int if_all_cached = 1;\n    for (int i = 0; i < COMPPRI_NUM; i++) {\n        if (if_cached[i])\n            comppri_item.counts[i] = cnt_cached[i];\n        else {\n            if_all_cached = 0;\n            comppri_item.counts[i] = -1;\n        }\n    }\n\n    if (if_all_cached) {\n        Response_msg resp_comppri;\n        if (comppri_item.counts[1] - comppri_item.counts[0] > \\\n                comppri_item.counts[3] - comppri_item.counts[2])\n            resp_comppri.set_response(\"There are more primes in first range.\");\n        else\n            resp_comppri.set_response(\"There are more primes in second range.\");\n        std::string req_desp = client_req.get_request_string();\n        master_cache.put(req_desp, resp_comppri);\n        send_client_response(client_handle, resp_comppri);\n    } else {\n        mstate.comppri_map[main_tag] = comppri_item;\n        for (int i = 0; i < COMPPRI_NUM; i++) {\n            mstate.num_cpu_intensive++;\n            if (if_cached[i]) continue;\n            Request_msg req_created(0);\n            create_computeprimes_req(req_created, comppri_item.params[i]);\n            Request_msg worker_req(req_tag[i], req_created);\n            mstate.response_client_map[req_tag[i]] = clt_req_item[i];\n            send_request_to_worker(mstate.my_worker[clt_req_item[i].worker_idx].worker,\n                                   worker_req);\n        }\n    }\n}\n\nint get_next_worker_idx(int request_type) {\n    int num_recv = mstate.num_workers_recv;\n    int num_run = mstate.num_workers_run;\n    int itor = 0;\n    int worker_idx = mstate.idx_array[itor];\n    afe\n    int min_num_request =\n        mstate.my_worker[worker_idx].num_request_each_type[request_type];\n    for (int i = 1; i < num_recv; i++) {\n        int new_worker_idx = i;\n        int new_request_num =\n            mstate.my_worker[new_worker_idx].num_request_each_type[request_type];\n        if (new_request_num < min_num_request) {\n            min_num_request = new_request_num;\n            worker_idx = new_worker_idx;\n        }\n    }\n    int proj_worker_idx = worker_idx;\n    int proj_min_num_request = min_num_request;\n    if (request_type == PROJECTIDEA && min_num_request >= PROJECTIDEA\n            && num_recv < num_run) {\n        for (int i = num_recv; i < num_run; i++) {\n            int new_worker_idx = i;\n            int new_request_num =\n                mstate.my_worker[new_worker_idx].num_request_each_type[request_type];\n            if (new_request_num < proj_min_num_request) {\n                proj_min_num_request = proj_worker_idx;\n                proj_worker_idx = new_worker_idx;\n            }\n        }\n    }\n    if (worker_idx != proj_worker_idx) {\n        LOG_PRINT(\"#################\\n\");\n        LOG_PRINT(\"Give projectidea to a killing worker\\n\");\n        LOG_PRINT(\"#################\\n\");\n        worker_idx = proj_worker_idx;\n    }\n\n    // if (request_type == PROJECTIDEA && worker_idx != proj_worker_idx) {\n\n    // }\n    // for (int i = 0; i < mstate.num_workers_run; i++) {\n    //     int new_worker_idx = i;\n    //     if (mstate.my_worker[new_worker_idx].time_to_be_killed != -1\n    //             && request_type != PROJECTIDEA)\n    //         break;\n    //     int new_request_num =\n    //         mstate.my_worker[new_worker_idx].num_request_each_type[request_type];\n    //     if (request_type == PROJECTIDEA\n    //             && new_request_num < MAX_RUNNING_PROJECTIDEA\n    //             && new_worker_idx >= mstate.num_workers_recv) {\n    //         min_num_request = new_request_num;\n    //         worker_idx = new_worker_idx;\n    //         break;\n    //     }\n    //     if (new_request_num < min_num_request) {\n    //         min_num_request = new_request_num;\n    //         worker_idx = new_worker_idx;\n    //     }\n    // }\n\n    // if (request_type == PROJECTIDEA) {\n    //     printf(\"$$$$$$$$$$$$$$$$$$$$$$$$$$$\\n\");\n    //     for (int i = 0; i < mstate.num_workers_run; i++) {\n    //         printf(\"project idea: %d, time: %d\\n\",\n    //                mstate.my_worker[i].num_request_each_type[request_type],\n    //                mstate.my_worker[i].time_to_be_killed);\n    //     }\n    //     printf(\"Choossing worker %d\\n\", worker_idx);\n    //     printf(\"$$$$$$$$$$$$$$$$$$$$$$$$$$$\\n\");\n    // }\n\n    // if (mstate.my_worker[worker_idx].time_to_be_killed != -1) {\n    //     LOG_PRINT(\"PULL back a worker\\n\");\n    //     for (int i = 0; i <= worker_idx; i++) {\n    //         mstate.my_worker[i].time_to_be_killed = -1;\n    //     }\n    // }\n    mstate.my_worker[worker_idx].num_request_each_type[request_type]++;\n    return worker_idx;\n}\n\nint get_next_worker_idx_countprimes(int n) {\n    int worker_idx = 0;\n    int min_primes_sum =\n        mstate.my_worker[worker_idx].sum_primes_countprimes;\n    for (int i = 1; i < mstate.num_workers_recv; i++) {\n        int new_worker_idx = i;\n        int new_request_primes_sum =\n            mstate.my_worker[new_worker_idx].sum_primes_countprimes;\n        // LOG_PRINT(\"min_primes_sum: %d, new_request_primes_sum: %d\\n\",\n        //           min_primes_sum, new_request_primes_sum);\n        if (new_request_primes_sum < min_primes_sum) {\n            min_primes_sum = new_request_primes_sum;\n            worker_idx = new_worker_idx;\n        }\n    }\n    mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES]++;\n    mstate.my_worker[worker_idx].sum_primes_countprimes += n;\n    return worker_idx;\n}\n\nstatic void create_computeprimes_req(Request_msg& req, int n) {\n    std::ostringstream oss;\n    oss << n;\n    req.set_arg(\"cmd\", \"countprimes\");\n    req.set_arg(\"n\", oss.str());\n}\n\nvoid handle_tick() {\n\n    // TODO: you may wish to take action here.  This method is called at\n    // fixed time intervals, according to how you set 'tick_period' in\n    // 'master_node_init'.\n#ifdef LOG_P\n    printf_worker_info();\n#endif\n    if (mstate.server_ready != true) return;\n    // need update time.\n    update_time();\n    int if_scale = ck_scale_cond();\n    if (if_scale == 1) scale_out();\n    else if (if_scale == -1) scale_in();\n    // kill_worker();\n}\n\nint ck_scale_cond() {\n    int ave_cpu_intensive = mstate.num_cpu_intensive / mstate.num_workers_recv;\n    int remaining_proj = 0;\n    for (int i = mstate.num_workers_recv; i < mstate.num_workers_run; i++) {\n        remaining_proj +=\n            mstate.my_worker[i].num_request_each_type[PROJECTIDEA];\n    }\n    int num_projectidea_now = mstate.num_projectidea - remaining_proj;\n    int num_slots_proj = mstate.num_workers_recv * MAX_RUNNING_PROJECTIDEA;\n    int remaining_slots = num_slots_proj - num_projectidea_now;\n    LOG_PRINT(\"num_projectidea: %d, mstate.num_workers_recv: %d\",\n              num_projectidea_now, mstate.num_workers_recv);\n    LOG_PRINT(\"remaining_slots: %d\\n\", remaining_slots);\n    LOG_PRINT(\"ave_cpu_intensive: %d, \\n\", ave_cpu_intensive);\n    LOG_PRINT(\"mstate.num_workers_recv: %d, \\n\", mstate.num_workers_recv);\n    LOG_PRINT(\"mstate.if_scaling_out: %d\\n\", mstate.if_scaling_out);\n\n    if (mstate.if_scaling_out) {\n        return 0;\n    }\n    if (mstate.num_workers_recv < mstate.max_num_workers\n            && mstate.time_since_last_new >= MIN_TIME_BEFORE_NEXT_WORKER) {\n        if (ave_cpu_intensive >= SCALEOUT_THRESHOLD || remaining_slots <= 1) {\n            return 1;\n        }\n    }\n    if (mstate.num_workers_recv > 1) {\n        if (ave_cpu_intensive < SCALEIN_THRESHOLD && remaining_slots >= 2) {\n            return -1;\n        }\n    }\n    return 0;\n}\n\nint scale_out() {\n    int if_scale_back = 0;\n    if (mstate.num_workers_recv < mstate.num_workers_run) {\n        LOG_PRINT(\"############################\\n\");\n        LOG_PRINT(\"Scale back!\\n\");\n        LOG_PRINT(\"############################\\n\");\n        int worker_idx = mstate.num_workers_recv;\n        mstate.my_worker[worker_idx].time_to_be_killed = -1;\n        mstate.num_workers_recv++;\n        if_scale_back = 1;\n    }\n    if (if_scale_back && !ck_scale_cond()) return 0;\n    if (mstate.num_workers_run < mstate.max_num_workers && ck_scale_cond()) {\n        int worker_idx = mstate.num_workers_plan++;\n        mstate.my_worker[worker_idx].worker = NULL;\n        for (int i = 0; i < NUM_TYPES; i++)\n            mstate.my_worker[worker_idx].num_request_each_type[i] = 0;\n        mstate.my_worker[worker_idx].sum_primes_countprimes = 0;\n        mstate.my_worker[worker_idx].time_to_be_killed = -1;\n\n        Request_msg req(worker_idx);\n        std::string idx_str = std::to_string(worker_idx);\n        req.set_arg(\"worker_id\", idx_str);\n        request_new_worker_node(req);\n        mstate.if_scaling_out = 1;\n        LOG_PRINT(\"############################\\n\");\n        LOG_PRINT(\"Scale out!\\n\");\n        LOG_PRINT(\"############################\\n\");\n    } else return -1;\n    return 0;\n}\n\nint scale_in() {\n    if (mstate.num_workers_recv == 1) return -1;\n    mstate.num_workers_recv--;\n    int worker_idx = mstate.num_workers_recv;\n    mstate.my_worker[worker_idx].time_to_be_killed = 0;\n    LOG_PRINT(\"############################\\n\");\n    LOG_PRINT(\"Scale in!\\n\");\n    LOG_PRINT(\"############################\\n\");\n    return 0;\n}\n\nvoid update_time() {\n    mstate.time_since_last_new++;\n    for (int i = 0; i < mstate.num_workers_run; i++) {\n        int worker_idx = i;\n        if (mstate.my_worker[worker_idx].time_to_be_killed != -1)\n            mstate.my_worker[worker_idx].time_to_be_killed++;\n    }\n}\n\nvoid kill_worker() {\n    for (int i = mstate.num_workers_recv; i < mstate.num_workers_run; i++) {\n        int worker_idx = i;\n        int num_works = get_works_num(worker_idx);\n        LOG_PRINT(\"############################\\n\");\n        LOG_PRINT(\"Worker %d, remaining work %d!\\n\", worker_idx, num_works);\n        LOG_PRINT(\"############################\\n\");\n        if (mstate.my_worker[worker_idx].time_to_be_killed\n                >= MIN_TIME_BEFORE_GET_KILLED && num_works == 0) {\n            kill_worker_node(mstate.my_worker[worker_idx].worker);\n            clear_worker_info(worker_idx);\n            mstate.num_workers_run--;\n            mstate.num_workers_plan--;\n            // send close request\n\n            LOG_PRINT(\"############################\\n\");\n            LOG_PRINT(\"Kill worker!\\n\");\n            LOG_PRINT(\"############################\\n\");\n        }\n    }\n}\n\nvoid clear_worker_info(int worker_idx) {\n    for (int i = worker_idx + 1; i < mstate.num_workers_run; i++) {\n        mstate.my_worker[i - 1].worker = mstate.my_worker[i].worker;\n        mstate.my_worker[i - 1].sum_primes_countprimes =\n            mstate.my_worker[i].sum_primes_countprimes;\n        mstate.my_worker[i - 1].time_to_be_killed =\n            mstate.my_worker[i].time_to_be_killed;\n        for (int j = 0; j < NUM_TYPES; j++) {\n            mstate.my_worker[i - 1].num_request_each_type[j] =\n                mstate.my_worker[i].num_request_each_type[j];\n        }\n    }\n}\n\nint get_works_num(int worker_idx) {\n    int num_works = 0;\n    for (int i = 0; i < NUM_TYPES - 1; i++) {\n        num_works += mstate.my_worker[worker_idx].num_request_each_type[i];\n    }\n    return num_works;\n}\n\nint get_num_cpu_intensive_per_worker(int worker_id) {\n    int result = mstate.my_worker[worker_id].num_request_each_type[WISDOM418]\n                 + mstate.my_worker[worker_id].num_request_each_type[COUNTERPRIMES];\n    return result;\n}\n\nint get_num_projectidea_per_worker(int worker_id) {\n    return mstate.my_worker[worker_id].num_request_each_type[PROJECTIDEA];\n}\n\nint get_free_idx() {\n    int num_worker_plan = mstate.num_workers_plan;\n    if (num_worker_plan == mstate.max_num_workers) return -1;\n    int if_occupy[MAX_WORKERS] = {0};\n    for (int i = 0; i < num_worker_plan; i++) {\n        if_occupy[idx_array[i]] = 1;\n    }\n\n    for (int i = 0; i < num_worker_plan; i++) {\n        if (if_occupy[i] == 0) return i;\n    }\n}\n\nvoid printf_worker_info() {\n    LOG_PRINT(\"\\n\\n######################################################\\n\\n\");\n    for (int i = 0; i < mstate.num_workers_run; i++) {\n        int num_cpu_intensive = 0;\n        int num_works_total = 0;\n        for (int j = 0; j < NUM_TYPES - 1; j++) {\n            if (j == WISDOM418 || j == COUNTERPRIMES) {\n                num_cpu_intensive +=\n                    mstate.my_worker[i].num_request_each_type[j];\n            }\n            num_works_total +=\n                mstate.my_worker[i].num_request_each_type[j];\n        }\n        LOG_PRINT(\"Worker %d, 418wisdom: %d, countprimes: %d, countprimes_sum: %d, cpu_intensive:%d,  projectidea: %d, tellmenow: %d, works_total: %d\\n\",\n                  i,\n                  mstate.my_worker[i].num_request_each_type[WISDOM418],\n                  mstate.my_worker[i].num_request_each_type[COUNTERPRIMES],\n                  mstate.my_worker[i].sum_primes_countprimes,\n                  num_cpu_intensive,\n                  mstate.my_worker[i].num_request_each_type[PROJECTIDEA],\n                  mstate.my_worker[i].num_request_each_type[TELLMENOW],\n                  num_works_total\n                 );\n    }\n    LOG_PRINT(\"\\n\\n######################################################\\n\\n\");\n}\n\n",
-			"file": "src/myserver/master.cpp",
-			"file_size": 26659,
-			"file_write_time": 131360062690000000,
-			"settings":
-			{
-				"buffer_size": 26667,
-				"encoding": "UTF-8",
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"contents": "{\n    \"SublimeLinter\":\n    {\n        \"linters\":\n        {\n            \"clang\":\n            {\n                \"extra_flags\": \"\",\n                \"include_dirs\":\n                [\n                    \"$project_folder/\",\n                    \"$project_folder/src/\",\n                    \"$project_folder/src/asst4include\",\n                    \"$project_folder/src/asst4include/server\",\n                    \"$project_folder/src/asst4include/tools\"\n                ]\n            }\n        }\n    },\n    \"folders\":\n    [\n        {\n            \"path\": \".\"\n        }\n    ]\n}\n",
-			"file": "a4.sublime-project",
-			"file_size": 564,
-			"file_write_time": 131358691190000000,
-			"settings":
-			{
-				"buffer_size": 564,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/myserver/worker.cpp",
-			"settings":
-			{
-				"buffer_size": 11263,
-				"encoding": "UTF-8",
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/myserver/request_type_def.h",
-			"settings":
-			{
-				"buffer_size": 249,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"contents": "#include <glog/logging.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string>\n#include <map>\n#include <sstream>\n#include <stdlib.h>\n\n#include \"server/messages.h\"\n#include \"server/master.h\"\n#include \"server/worker.h\"\n#include \"tools/work_queue.h\"\n#include \"request_type_def.h\"\n#include \"lru_cache.h\"\n\n// #define DEBUG\n#ifdef DEBUG\n#define DEBUG_PRINT printf\n#else\n#define DEBUG_PRINT(...)\n#endif\n\n#define LOG_P\n#ifdef LOG_P\n#define LOG_PRINT printf\n#else\n#define LOG_PRINT(...)\n#endif\n\n// #define DEBUG2\n#ifdef DEBUG2\n#define DEBUG2_PRINT printf\n#else\n#define DEBUG2_PRINT(...)\n#endif\n\n#define MAX_WORKERS 8\n#define COMPPRI_NUM 4\n#define MAX_CACHE_SIZE 100000\n#define MAX_RUNNING_PROJECTIDEA 2\n#define SCALEOUT_THRESHOLD 24\n#define SCALEIN_THRESHOLD 10\n#define MIN_TIME_BEFORE_GET_KILLED 2\n#define MIN_TIME_BEFORE_NEXT_WORKER 0\n#define INITIAL_WORKER_NUM 1\n\ntypedef struct comppri_item {\n    int params[COMPPRI_NUM];\n    int counts[COMPPRI_NUM];\n} comppri_item_t;\n\ntypedef struct client_request_item {\n    Client_handle client_handle;\n    Request_msg client_req;\n    int counter_primes_n;\n    int request_type;\n    int worker_idx;\n    int idx_if_compppri;\n} client_request_item_t;\n\ntypedef struct my_worker_info {\n    Worker_handle worker;\n    int num_request_each_type[NUM_TYPES];\n    int sum_primes_countprimes;\n    int time_to_be_killed;\n} my_worker_info_t;\n\nstatic struct Master_state {\n\n    // The mstate struct collects all the master node state into one\n    // place.  You do not need to preserve any of the fields below, they\n    // exist only to implement the basic functionality of the starter\n    // code.\n\n    bool server_ready;\n    int max_num_workers;\n    int next_request_tag;\n\n    my_worker_info_t my_worker[MAX_WORKERS];\n    int num_workers_run;\n    int num_workers_recv;\n    int num_workers_plan;\n\n    std::map<int, client_request_item_t> response_client_map;\n    std::map<int, comppri_item_t> comppri_map;\n\n    int num_cpu_intensive;\n    int num_projectidea;\n    int time_since_last_new;\n    int if_booted;\n    int if_scaling_out;\n} mstate;\n\nlru_cache<std::string, Response_msg> master_cache(MAX_CACHE_SIZE);\n\nvoid handle_compareprimes_req(Client_handle &client_handle,\n                              const Request_msg &client_req);\nint get_next_worker_idx(int request_type);\nint get_next_worker_idx_countprimes(int n);\nstatic void create_computeprimes_req(Request_msg& req, int n);\nvoid handle_comppri_response(Worker_handle worker_handle,\n                             const Response_msg& resp,\n                             client_request_item_t &client_request_item);\nvoid printf_worker_info();\n\nvoid update_time();\nint ck_scale_cond();\nint scale_out();\nint scale_in();\nvoid kill_worker();\nvoid clear_worker_info(int worker_idx);\nint get_works_num(int worker_idx);\nint get_num_cpu_intensive_per_worker(int worker_id);\nint get_num_projectidea_per_worker(int worker_id);\n\nvoid master_node_init(int max_workers, int& tick_period) {\n\n    // WorkQueue<client_request_item_t> queue = WorkQueue();\n    // set up tick handler to fire every 5 seconds. (feel free to\n    // configure as you please)\n    tick_period = 1;\n    mstate.max_num_workers = max_workers;\n    mstate.next_request_tag = 0;\n    mstate.time_since_last_new = 0;\n    mstate.if_booted = 0;\n    mstate.if_scaling_out = 0;\n\n    for (int i = 0; i < max_workers; i++) {\n        mstate.my_worker[i].worker = NULL;\n        for (int j = 0; j < NUM_TYPES; j++)\n            mstate.my_worker[i].num_request_each_type[j] = 0;\n        mstate.my_worker[i].sum_primes_countprimes = 0;\n        mstate.my_worker[i].time_to_be_killed = -1;\n    }\n    mstate.num_workers_plan = INITIAL_WORKER_NUM;\n    mstate.num_workers_run = 0;\n    mstate.num_workers_recv = 0;\n\n\n    // don't mark the server as ready until the server is ready to go.\n    // This is actually when the first worker is up and running, not\n    // when 'master_node_init' returnes\n    mstate.server_ready = false;\n\n    // fire off a request for a new worker\n\n    std::string name_field = \"worker_id\";\n    for (int i = 0; i < mstate.num_workers_plan; i++) {\n        Request_msg req(i);\n        std::string id = std::to_string(i);\n        // printf(\"worker id %s in master\", id);\n        req.set_arg(name_field, id);\n        request_new_worker_node(req);\n    }\n}\n\nvoid handle_new_worker_online(Worker_handle worker_handle, int tag) {\n\n    // 'tag' allows you to identify which worker request this response\n    // corresponds to.  Since the starter code only sends off one new\n    // worker request, we don't use it here.\n\n    // DEBUG_PRINT(\"worker %d\\n\", tag);\n    mstate.num_workers_run++;\n    mstate.num_workers_recv++;\n    int idx = tag;\n    mstate.my_worker[idx].worker = worker_handle;\n    mstate.my_worker[idx].sum_primes_countprimes = 0;\n    mstate.my_worker[idx].time_to_be_killed = -1;\n\n    LOG_PRINT(\"########################\\n\");\n    LOG_PRINT(\"New node online\\n\");\n    LOG_PRINT(\"########################\\n\");\n    // Now that a worker is booted, let the system know the server is\n    // ready to begin handling client requests.  The test harness will\n    // now start its timers and start hitting your server with requests.\n    if (mstate.if_booted && mstate.num_workers_run == mstate.num_workers_plan) {\n        mstate.if_scaling_out = 0;\n    }\n    if (!mstate.if_booted && mstate.num_workers_run == mstate.num_workers_plan) {\n        server_init_complete();\n        mstate.server_ready = true;\n        mstate.if_booted = 1;\n    }\n}\n\nvoid handle_worker_response(Worker_handle worker_handle, const Response_msg& resp) {\n\n    // Master node has received a response from one of its workers.\n    // Here we directly return this response to the client.\n\n    DLOG(INFO) << \"Master received a response from a worker: [\" << resp.get_tag() << \":\" << resp.get_response() << \"]\" << std::endl;\n\n    // send_client_response(mstate.waiting_client, resp);\n\n    // mstate.num_pending_client_requests = 0;\n    int request_tag = resp.get_tag();\n    client_request_item_t client_request_item =\n        mstate.response_client_map[request_tag];\n    int request_type = client_request_item.request_type;\n    if (request_type == WISDOM418 || request_type == COUNTERPRIMES) {\n        mstate.num_cpu_intensive--;\n    } else if (request_type == COMPAREPRIMES) {\n        mstate.num_cpu_intensive--;\n        return handle_comppri_response(worker_handle,\n                                       resp, client_request_item);\n    } else if (request_type == PROJECTIDEA) {\n        mstate.num_projectidea--;\n    }\n    int worker_idx = client_request_item.worker_idx;\n    int counter_primes_n = client_request_item.counter_primes_n;\n    mstate.my_worker[worker_idx].num_request_each_type[request_type]--;\n    if (request_type == COUNTERPRIMES)\n        mstate.my_worker[worker_idx].sum_primes_countprimes -= counter_primes_n;\n    mstate.response_client_map.erase(request_tag);\n    std::string req_desp = client_request_item.client_req.get_request_string();\n    master_cache.put(req_desp, resp);\n    DEBUG_PRINT(\"resp: %s in handle_worker_response is put into cache\\n\",\n                req_desp.c_str());\n    send_client_response(client_request_item.client_handle, resp);\n}\n\nvoid handle_comppri_response(Worker_handle worker_handle,\n                             const Response_msg& resp,\n                             client_request_item_t &client_request_item) {\n    int request_tag = resp.get_tag();\n    int worker_idx = client_request_item.worker_idx;\n    int counter_primes_n = client_request_item.counter_primes_n;\n    int main_tag = client_request_item.idx_if_compppri;\n    int count = atoi(resp.get_response().c_str());\n    mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES] -= 1;\n    mstate.my_worker[worker_idx].sum_primes_countprimes -= counter_primes_n;\n\n    comppri_item_t comppri_item;\n    comppri_item = mstate.comppri_map[main_tag];\n    for (int i = 0; i < COMPPRI_NUM; i++) {\n        if (comppri_item.params[i] == counter_primes_n) {\n            comppri_item.counts[i] = count;\n            break;\n        }\n    }\n    mstate.comppri_map[main_tag] = comppri_item;\n\n    int if_completed = 1;\n    for (int i = 0; i < COMPPRI_NUM; i++) {\n        if (comppri_item.counts[i] == -1) {\n            if_completed = 0;\n            break;\n        }\n    }\n\n    if (if_completed) {\n        Response_msg resp_comppri;\n        if (comppri_item.counts[1] - comppri_item.counts[0] > \\\n                comppri_item.counts[3] - comppri_item.counts[2])\n            resp_comppri.set_response(\"There are more primes in first range.\");\n        else\n            resp_comppri.set_response(\"There are more primes in second range.\");\n        std::string req_desp =\n            client_request_item.client_req.get_request_string();\n        master_cache.put(req_desp, resp_comppri);\n        send_client_response(client_request_item.client_handle, resp_comppri);\n        mstate.comppri_map.erase(main_tag);\n    }\n    mstate.response_client_map.erase(request_tag);\n}\n\nvoid handle_client_request(Client_handle client_handle, const Request_msg& client_req) {\n\n    DLOG(INFO) << \"Received request: \" << client_req.get_request_string() << std::endl;\n\n    DEBUG_PRINT(\"%s\\n\", client_req.get_request_string().c_str());\n    // You can assume that traces end with this special message.  It\n    // exists because it might be useful for debugging to dump\n    // information about the entire run here: statistics, etc.\n    Response_msg cached_resp;\n    std::string cached_req_desp = client_req.get_request_string();\n    if (master_cache.exist(cached_req_desp) == true) {\n        DEBUG_PRINT(\"cache hit, request: %s\\n\",\n                    client_req.get_request_string().c_str());\n        cached_resp = master_cache.get(cached_req_desp);\n        send_client_response(client_handle, cached_resp);\n        return;\n    }\n    if (client_req.get_arg(\"cmd\") == \"lastrequest\") {\n        Response_msg resp(0);\n        resp.set_response(\"ack\");\n        send_client_response(client_handle, resp);\n        return;\n    }\n\n    if (client_req.get_arg(\"cmd\").compare(\"compareprimes\") == 0)\n        return handle_compareprimes_req(client_handle, client_req);\n\n    int request_tag = mstate.next_request_tag++;\n    client_request_item_t client_request_item;\n    client_request_item.client_handle = client_handle;\n    client_request_item.client_req = client_req;\n\n    int worker_idx = 0;\n    // TODO modified for dubug use.\n    if (client_req.get_arg(\"cmd\").compare(\"418wisdom\") == 0) {\n        mstate.num_cpu_intensive++;\n        worker_idx = get_next_worker_idx(WISDOM418);\n        DEBUG_PRINT(\"worker_idx: %d from master\\n\", worker_idx);\n        client_request_item.request_type = WISDOM418;\n    } else if (client_req.get_arg(\"cmd\").compare(\"projectidea\") == 0) {\n        mstate.num_projectidea++;\n        worker_idx = get_next_worker_idx(PROJECTIDEA);\n        client_request_item.request_type = PROJECTIDEA;\n    } else if (client_req.get_arg(\"cmd\").compare(\"tellmenow\") == 0) {\n        worker_idx = get_next_worker_idx(TELLMENOW);\n        client_request_item.request_type = TELLMENOW;\n    } else if (client_req.get_arg(\"cmd\").compare(\"countprimes\") == 0) {\n        mstate.num_cpu_intensive++;\n        int n = atoi(client_req.get_arg(\"n\").c_str());\n        worker_idx = get_next_worker_idx_countprimes(n);\n        client_request_item.request_type = COUNTERPRIMES;\n        client_request_item.counter_primes_n = n;\n    } else {\n        Response_msg resp(0);\n        resp.set_response(\"Oh no! This type of request is not supported by server\");\n        send_client_response(client_handle, resp);\n        mstate.response_client_map.erase(request_tag);\n        return;\n    }\n\n    client_request_item.worker_idx = worker_idx;\n    mstate.response_client_map[request_tag] = client_request_item;\n    Request_msg worker_req(request_tag, client_req);\n    send_request_to_worker(mstate.my_worker[worker_idx].worker, worker_req);\n}\n\nvoid handle_compareprimes_req(Client_handle &client_handle,\n                              const Request_msg &client_req) {\n    int main_tag = mstate.next_request_tag++;\n    int req_tag[COMPPRI_NUM];\n    client_request_item_t clt_req_item[COMPPRI_NUM];\n    comppri_item_t comppri_item;\n    comppri_item.params[0] = atoi(client_req.get_arg(\"n1\").c_str());\n    comppri_item.params[1] = atoi(client_req.get_arg(\"n2\").c_str());\n    comppri_item.params[2] = atoi(client_req.get_arg(\"n3\").c_str());\n    comppri_item.params[3] = atoi(client_req.get_arg(\"n4\").c_str());\n\n    int if_cached[COMPPRI_NUM] = {0};\n    int cnt_cached[COMPPRI_NUM];\n    for (int i = 0; i < COMPPRI_NUM; i++) {\n        Request_msg dummy_req(0);\n        Response_msg dummy_resp(0);\n        create_computeprimes_req(dummy_req, comppri_item.params[i]);\n        std::string req_desp = dummy_req.get_request_string();\n        if (master_cache.exist(req_desp) == true) {\n            if_cached[i] = 1;\n            dummy_resp = master_cache.get(req_desp);\n            cnt_cached[i] = atoi(dummy_resp.get_response().c_str());\n        }\n    }\n\n\n    for (int i = 0; i < COMPPRI_NUM; i++) {\n        if (if_cached[i]) continue;\n        req_tag[i] = mstate.next_request_tag++;\n        clt_req_item[i].client_handle = client_handle;\n        clt_req_item[i].client_req = client_req;\n        clt_req_item[i].counter_primes_n = comppri_item.params[i];\n        clt_req_item[i].request_type = COMPAREPRIMES;\n        clt_req_item[i].worker_idx =\n            get_next_worker_idx_countprimes(comppri_item.params[i]);\n        clt_req_item[i].idx_if_compppri = main_tag;\n    }\n\n    int if_all_cached = 1;\n    for (int i = 0; i < COMPPRI_NUM; i++) {\n        if (if_cached[i])\n            comppri_item.counts[i] = cnt_cached[i];\n        else {\n            if_all_cached = 0;\n            comppri_item.counts[i] = -1;\n        }\n    }\n\n    if (if_all_cached) {\n        Response_msg resp_comppri;\n        if (comppri_item.counts[1] - comppri_item.counts[0] > \\\n                comppri_item.counts[3] - comppri_item.counts[2])\n            resp_comppri.set_response(\"There are more primes in first range.\");\n        else\n            resp_comppri.set_response(\"There are more primes in second range.\");\n        std::string req_desp = client_req.get_request_string();\n        master_cache.put(req_desp, resp_comppri);\n        send_client_response(client_handle, resp_comppri);\n    } else {\n        mstate.comppri_map[main_tag] = comppri_item;\n        for (int i = 0; i < COMPPRI_NUM; i++) {\n            mstate.num_cpu_intensive++;\n            if (if_cached[i]) continue;\n            Request_msg req_created(0);\n            create_computeprimes_req(req_created, comppri_item.params[i]);\n            Request_msg worker_req(req_tag[i], req_created);\n            mstate.response_client_map[req_tag[i]] = clt_req_item[i];\n            send_request_to_worker(mstate.my_worker[clt_req_item[i].worker_idx].worker,\n                                   worker_req);\n        }\n    }\n}\n\nint get_next_worker_idx(int request_type) {\n    int num_recv = mstate.num_workers_recv;\n    int num_run = mstate.num_workers_run;\n    int worker_idx = 0;\n    int min_num_request =\n        mstate.my_worker[worker_idx].num_request_each_type[request_type];\n    for (int i = 1; i < num_recv; i++) {\n        int new_worker_idx = i;\n        int new_request_num =\n            mstate.my_worker[new_worker_idx].num_request_each_type[request_type];\n        if (new_request_num < min_num_request) {\n            min_num_request = new_request_num;\n            worker_idx = new_worker_idx;\n        }\n    }\n    int proj_worker_idx = worker_idx;\n    int proj_min_num_request = min_num_request;\n    if (request_type == PROJECTIDEA && min_num_request >= PROJECTIDEA\n            && num_recv < num_run) {\n        for (int i = num_recv; i < num_run; i++) {\n            int new_worker_idx = i;\n            int new_request_num =\n                mstate.my_worker[new_worker_idx].num_request_each_type[request_type];\n            if (new_request_num < proj_min_num_request) {\n                proj_min_num_request = proj_worker_idx;\n                proj_worker_idx = new_worker_idx;\n            }\n        }\n    }\n    if (worker_idx != proj_worker_idx) {\n        LOG_PRINT(\"#################\\n\");\n        LOG_PRINT(\"Give projectidea to a killing worker\\n\");\n        LOG_PRINT(\"#################\\n\");\n        worker_idx = proj_worker_idx;\n    }\n\n    // if (request_type == PROJECTIDEA && worker_idx != proj_worker_idx) {\n\n    // }\n    // for (int i = 0; i < mstate.num_workers_run; i++) {\n    //     int new_worker_idx = i;\n    //     if (mstate.my_worker[new_worker_idx].time_to_be_killed != -1\n    //             && request_type != PROJECTIDEA)\n    //         break;\n    //     int new_request_num =\n    //         mstate.my_worker[new_worker_idx].num_request_each_type[request_type];\n    //     if (request_type == PROJECTIDEA\n    //             && new_request_num < MAX_RUNNING_PROJECTIDEA\n    //             && new_worker_idx >= mstate.num_workers_recv) {\n    //         min_num_request = new_request_num;\n    //         worker_idx = new_worker_idx;\n    //         break;\n    //     }\n    //     if (new_request_num < min_num_request) {\n    //         min_num_request = new_request_num;\n    //         worker_idx = new_worker_idx;\n    //     }\n    // }\n\n    // if (request_type == PROJECTIDEA) {\n    //     printf(\"$$$$$$$$$$$$$$$$$$$$$$$$$$$\\n\");\n    //     for (int i = 0; i < mstate.num_workers_run; i++) {\n    //         printf(\"project idea: %d, time: %d\\n\",\n    //                mstate.my_worker[i].num_request_each_type[request_type],\n    //                mstate.my_worker[i].time_to_be_killed);\n    //     }\n    //     printf(\"Choossing worker %d\\n\", worker_idx);\n    //     printf(\"$$$$$$$$$$$$$$$$$$$$$$$$$$$\\n\");\n    // }\n\n    // if (mstate.my_worker[worker_idx].time_to_be_killed != -1) {\n    //     LOG_PRINT(\"PULL back a worker\\n\");\n    //     for (int i = 0; i <= worker_idx; i++) {\n    //         mstate.my_worker[i].time_to_be_killed = -1;\n    //     }\n    // }\n    //\n\n    if (mstate.num_workers_recv < mstate.max_num_workers\n            && mstate.if_scaling_out\n            && mstate.time_since_last_new >= MIN_TIME_BEFORE_NEXT_WORKER) {\n        int num_cpu_intensive = get_num_cpu_intensive_per_worker(worker_idx);\n        int num_projectidea = get_num_projectidea_per_worker(worker_idx);\n        if (num_cpu_intensive >= SCALEOUT_THRESHOLD\n                || num_projectidea >= MAX_RUNNING_PROJECTIDEA) {\n            LOG_PRINT(\"#######################\\n\");\n            LOG_PRINT(\"scale out in get_idx!\");\n            LOG_PRINT(\"#######################\\n\");\n            scale_out();\n        }\n    }\n    mstate.my_worker[worker_idx].num_request_each_type[request_type]++;\n    return worker_idx;\n}\n\nint get_next_worker_idx_countprimes(int n) {\n    int worker_idx = 0;\n    int min_primes_sum =\n        mstate.my_worker[worker_idx].sum_primes_countprimes;\n    for (int i = 1; i < mstate.num_workers_recv; i++) {\n        int new_worker_idx = i;\n        int new_request_primes_sum =\n            mstate.my_worker[new_worker_idx].sum_primes_countprimes;\n        // LOG_PRINT(\"min_primes_sum: %d, new_request_primes_sum: %d\\n\",\n        //           min_primes_sum, new_request_primes_sum);\n        if (new_request_primes_sum < min_primes_sum) {\n            min_primes_sum = new_request_primes_sum;\n            worker_idx = new_worker_idx;\n        }\n    }\n    mstate.my_worker[worker_idx].num_request_each_type[COUNTERPRIMES]++;\n    mstate.my_worker[worker_idx].sum_primes_countprimes += n;\n    return worker_idx;\n}\n\nstatic void create_computeprimes_req(Request_msg& req, int n) {\n    std::ostringstream oss;\n    oss << n;\n    req.set_arg(\"cmd\", \"countprimes\");\n    req.set_arg(\"n\", oss.str());\n}\n\nvoid handle_tick() {\n\n    // TODO: you may wish to take action here.  This method is called at\n    // fixed time intervals, according to how you set 'tick_period' in\n    // 'master_node_init'.\n#ifdef LOG_P\n    printf_worker_info();\n#endif\n    if (mstate.server_ready != true) return;\n    // need update time.\n    update_time();\n    int if_scale = ck_scale_cond();\n    if (if_scale == 1) scale_out();\n    else if (if_scale == -1) scale_in();\n    // kill_worker();\n}\n\nint ck_scale_cond() {\n    int ave_cpu_intensive = mstate.num_cpu_intensive / mstate.num_workers_recv;\n    int remaining_proj = 0;\n    for (int i = mstate.num_workers_recv; i < mstate.num_workers_run; i++) {\n        remaining_proj +=\n            mstate.my_worker[i].num_request_each_type[PROJECTIDEA];\n    }\n    int num_projectidea_now = mstate.num_projectidea - remaining_proj;\n    int num_slots_proj = mstate.num_workers_recv * MAX_RUNNING_PROJECTIDEA;\n    int remaining_slots = num_slots_proj - num_projectidea_now;\n    LOG_PRINT(\"num_projectidea: %d, mstate.num_workers_recv: %d\",\n              num_projectidea_now, mstate.num_workers_recv);\n    LOG_PRINT(\"remaining_slots: %d\\n\", remaining_slots);\n    LOG_PRINT(\"ave_cpu_intensive: %d, \\n\", ave_cpu_intensive);\n    LOG_PRINT(\"mstate.num_workers_recv: %d, \\n\", mstate.num_workers_recv);\n    LOG_PRINT(\"mstate.if_scaling_out: %d\\n\", mstate.if_scaling_out);\n\n    if (mstate.if_scaling_out) {\n        return 0;\n    }\n    if (mstate.num_workers_recv < mstate.max_num_workers\n            && mstate.time_since_last_new >= MIN_TIME_BEFORE_NEXT_WORKER) {\n        if (ave_cpu_intensive >= SCALEOUT_THRESHOLD || remaining_slots <= 0) {\n            return 1;\n        }\n    }\n    if (mstate.num_workers_recv > 1) {\n        if (ave_cpu_intensive < SCALEIN_THRESHOLD && remaining_slots >= 2) {\n            return -1;\n        }\n    }\n    return 0;\n}\n\nint scale_out() {\n    int if_scale_back = 0;\n    if (mstate.num_workers_recv < mstate.num_workers_run) {\n        if_scale_back = 1;\n        LOG_PRINT(\"############################\\n\");\n        LOG_PRINT(\"Scale back!\\n\");\n        LOG_PRINT(\"############################\\n\");\n        int worker_idx = mstate.num_workers_recv;\n        mstate.my_worker[worker_idx].time_to_be_killed = -1;\n        mstate.num_workers_recv++;\n    }\n    if (if_scale_back == 1 && !ck_scale_cond()) return 0;\n    if (mstate.num_workers_run < mstate.max_num_workers) {\n        int worker_idx = mstate.num_workers_plan++;\n        mstate.my_worker[worker_idx].worker = NULL;\n        for (int i = 0; i < NUM_TYPES; i++)\n            mstate.my_worker[worker_idx].num_request_each_type[i] = 0;\n        mstate.my_worker[worker_idx].sum_primes_countprimes = 0;\n        mstate.my_worker[worker_idx].time_to_be_killed = -1;\n\n        Request_msg req(worker_idx);\n        std::string idx_str = std::to_string(worker_idx);\n        req.set_arg(\"worker_id\", idx_str);\n        request_new_worker_node(req);\n        mstate.if_scaling_out = 1;\n        LOG_PRINT(\"############################\\n\");\n        LOG_PRINT(\"Scale out!\\n\");\n        LOG_PRINT(\"############################\\n\");\n    } else return -1;\n    return 0;\n}\n\nint scale_in() {\n    if (mstate.num_workers_recv == 1) return -1;\n    mstate.num_workers_recv--;\n    int worker_idx = mstate.num_workers_recv;\n    mstate.my_worker[worker_idx].time_to_be_killed = 0;\n    LOG_PRINT(\"############################\\n\");\n    LOG_PRINT(\"Scale in!\\n\");\n    LOG_PRINT(\"############################\\n\");\n    return 0;\n}\n\nvoid update_time() {\n    mstate.time_since_last_new++;\n    for (int i = 0; i < mstate.num_workers_run; i++) {\n        int worker_idx = i;\n        if (mstate.my_worker[worker_idx].time_to_be_killed != -1)\n            mstate.my_worker[worker_idx].time_to_be_killed++;\n    }\n}\n\nvoid kill_worker() {\n    for (int i = mstate.num_workers_recv; i < mstate.num_workers_run; i--) {\n        int worker_idx = i;\n        int num_works = get_works_num(worker_idx);\n        LOG_PRINT(\"############################\\n\");\n        LOG_PRINT(\"Worker %d, remaining work %d!\\n\", worker_idx, num_works);\n        LOG_PRINT(\"############################\\n\");\n        if (mstate.my_worker[worker_idx].time_to_be_killed\n                >= MIN_TIME_BEFORE_GET_KILLED && num_works == 0) {\n            Worker_handle worker_to_delete =\n                mstate.my_worker[worker_idx].worker;\n            clear_worker_info(worker_idx);\n            mstate.num_workers_run--;\n            mstate.num_workers_plan--;\n            // send close request\n            kill_worker_node(worker_to_delete);\n            LOG_PRINT(\"############################\\n\");\n            LOG_PRINT(\"Kill worker!\\n\");\n            LOG_PRINT(\"############################\\n\");\n        }\n    }\n}\n\nvoid clear_worker_info(int worker_idx) {\n    for (int i = worker_idx + 1; i < mstate.num_workers_run; i++) {\n        mstate.my_worker[i - 1].worker = mstate.my_worker[i].worker;\n        mstate.my_worker[i - 1].sum_primes_countprimes =\n            mstate.my_worker[i].sum_primes_countprimes;\n        mstate.my_worker[i - 1].time_to_be_killed =\n            mstate.my_worker[i].time_to_be_killed;\n        for (int j = 0; j < NUM_TYPES; j++) {\n            mstate.my_worker[i - 1].num_request_each_type[j] =\n                mstate.my_worker[i].num_request_each_type[j];\n        }\n    }\n}\n\nint get_works_num(int worker_idx) {\n    int num_works = 0;\n    for (int i = 0; i < NUM_TYPES - 1; i++) {\n        num_works += mstate.my_worker[worker_idx].num_request_each_type[i];\n    }\n    return num_works;\n}\n\nint get_num_cpu_intensive_per_worker(int worker_id) {\n    int result = mstate.my_worker[worker_id].num_request_each_type[WISDOM418]\n                 + mstate.my_worker[worker_id].num_request_each_type[COUNTERPRIMES];\n    return result;\n}\n\nint get_num_projectidea_per_worker(int worker_id) {\n    return mstate.my_worker[worker_id].num_request_each_type[PROJECTIDEA];\n}\n\nvoid printf_worker_info() {\n    LOG_PRINT(\"\\n\\n######################################################\\n\\n\");\n    for (int i = 0; i < mstate.num_workers_run; i++) {\n        int num_cpu_intensive = 0;\n        int num_works_total = 0;\n        for (int j = 0; j < NUM_TYPES - 1; j++) {\n            if (j == WISDOM418 || j == COUNTERPRIMES) {\n                num_cpu_intensive +=\n                    mstate.my_worker[i].num_request_each_type[j];\n            }\n            num_works_total +=\n                mstate.my_worker[i].num_request_each_type[j];\n        }\n        LOG_PRINT(\"Worker %d, 418wisdom: %d, countprimes: %d, countprimes_sum: %d, cpu_intensive:%d,  projectidea: %d, tellmenow: %d, works_total: %d\\n\",\n                  i,\n                  mstate.my_worker[i].num_request_each_type[WISDOM418],\n                  mstate.my_worker[i].num_request_each_type[COUNTERPRIMES],\n                  mstate.my_worker[i].sum_primes_countprimes,\n                  num_cpu_intensive,\n                  mstate.my_worker[i].num_request_each_type[PROJECTIDEA],\n                  mstate.my_worker[i].num_request_each_type[TELLMENOW],\n                  num_works_total\n                 );\n    }\n    LOG_PRINT(\"\\n\\n######################################################\\n\\n\");\n}\n\n",
-			"settings":
-			{
-				"buffer_size": 26826,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"contents": "my_worker_info_t my_worker[MAX_WORKERS];\n    int num_workers_run;\n    int num_workers_recv;\n    int num_workers_plan;\n    int idx_array[MAX_WORKERS];",
-			"settings":
-			{
-				"buffer_size": 149,
-				"line_ending": "Unix"
-			}
-		}
-	],
 	"build_system": "",
 	"build_system_choices":
 	[
@@ -639,18 +580,12 @@
 		"side_bar_visible": false,
 		"status_bar_visible": false
 	},
-	"expanded_folders":
-	[
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver"
-	],
 	"file_history":
 	[
+		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/a4.sublime-project",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/sftp-config.json",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/tests/grading_nonuniform2.txt",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/master.cpp",
-		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/a4.sublime-project",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/lru_cache.h",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/src/myserver/worker_sche_queue.h",
 		"/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4/tests/hello418.txt",
@@ -778,7 +713,7 @@
 	],
 	"find":
 	{
-		"height": 30.0
+		"height": 54.0
 	},
 	"find_in_files":
 	{
@@ -792,9 +727,26 @@
 	},
 	"find_state":
 	{
-		"case_sensitive": true,
+		"case_sensitive": false,
 		"find_history":
 		[
+			"Give projectidea",
+			"Give projectidea to a killing worker",
+			"mstate.num_workers_run",
+			"mstate.num_workers_recv",
+			"kill_worker",
+			"ck_scale_cond",
+			"get_next_worker_idx_countprimes",
+			"get_free_idx",
+			"my_worker[",
+			"get_free_idx",
+			"ck_scale_cond",
+			"if_scaling_out",
+			"get_next_worker_idx_countprimes",
+			"handle_worker_response",
+			"get_works_num",
+			"my_worker[",
+			"clear_worker_info",
 			"my_worker[",
 			"my_worker",
 			"kill_worker",
@@ -905,24 +857,7 @@
 			"51127",
 			"78380",
 			"75581",
-			"28184",
-			"50469",
-			"90812",
-			"58338",
-			"47660",
-			"fill_sche_queue",
-			"get_req",
-			"work_on_req",
-			"DEBUG_PRINT",
-			"sche_queue_get",
-			"work_on_req",
-			"handle_compareprimes_req",
-			"->",
-			"DEBUG_PRINT",
-			"cached_item_t",
-			"fill_sche_queue",
-			"fast_queue_get",
-			"get_req"
+			"28184"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -963,733 +898,6 @@
 		"whole_word": false,
 		"wrap": false
 	},
-	"groups":
-	[
-		{
-			"selected": 1,
-			"sheets":
-			[
-				{
-					"buffer": 0,
-					"file": "src/myserver/master.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 26667,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								15227,
-								15227
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-								},
-								"icon":
-								{
-								},
-								"open":
-								{
-								},
-								"unmatched":
-								{
-									"1":
-									[
-										15069,
-										15070
-									]
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content"
-							],
-							"incomplete_sync": null,
-							"remote_loading": false,
-							"synced": false,
-							"syntax": "Packages/C++/C++.sublime-syntax",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 8176.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
-					"type": "text"
-				},
-				{
-					"buffer": 1,
-					"file": "a4.sublime-project",
-					"semi_transient": true,
-					"settings":
-					{
-						"buffer_size": 564,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								0,
-								0
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										562,
-										563
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/curly_bracket.png",
-										"brackethighlighter.default"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										0,
-										1
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content"
-							],
-							"incomplete_sync": null,
-							"remote_loading": false,
-							"synced": false,
-							"syntax": "Packages/zzz A File Icon zzz/aliases/JSON (Sublime).sublime-syntax",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 0,
-					"type": "text"
-				}
-			]
-		},
-		{
-			"selected": 3,
-			"sheets":
-			[
-				{
-					"buffer": 2,
-					"file": "src/myserver/worker.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 11263,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								331,
-								331
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										390,
-										396
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/hash.png",
-										"brackethighlighter.default"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										319,
-										325
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content"
-							],
-							"incomplete_sync": null,
-							"remote_loading": false,
-							"synced": false,
-							"syntax": "Packages/C++/C++.sublime-syntax",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 6061.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 5,
-					"type": "text"
-				},
-				{
-					"buffer": 3,
-					"file": "src/myserver/request_type_def.h",
-					"semi_transient": true,
-					"settings":
-					{
-						"buffer_size": 249,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								197,
-								206
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										216,
-										222
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/hash.png",
-										"brackethighlighter.default"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										0,
-										7
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content"
-							],
-							"incomplete_sync": null,
-							"remote_loading": false,
-							"synced": false,
-							"syntax": "Packages/C Improved/C Improved.tmLanguage"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 4,
-					"type": "text"
-				},
-				{
-					"buffer": 4,
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 26826,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								25930,
-								25930
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										26009,
-										26010
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/curly_bracket.png",
-										"brackethighlighter.default"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										25892,
-										25893
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content"
-							],
-							"default_dir": "/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4",
-							"incomplete_sync": null,
-							"syntax": "Packages/C++/C++.sublime-syntax"
-						},
-						"translation.x": 0.0,
-						"translation.y": 13999.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 3,
-					"type": "text"
-				},
-				{
-					"buffer": 5,
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 149,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								126,
-								135
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										147,
-										148
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/square_bracket.png",
-										"brackethighlighter.default"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										135,
-										136
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content"
-							],
-							"default_dir": "/Users/dengqiaoyu/Documents/Learning/CMU/2_Semester/Parallel_Computing_15-618/repo/assignment/4",
-							"incomplete_sync": null,
-							"syntax": "Packages/C++/C++.sublime-syntax"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 2,
-					"type": "text"
-				}
-			]
-		}
-	],
 	"incremental_find":
 	{
 		"height": 30.0
@@ -1745,7 +953,6 @@
 		"height": 144.0
 	},
 	"pinned_build_system": "",
-	"project": "a4.sublime-project",
 	"replace":
 	{
 		"height": 56.0
@@ -1782,7 +989,6 @@
 		],
 		"width": 0.0
 	},
-	"selected_group": 0,
 	"settings":
 	{
 	},
