@@ -20,7 +20,7 @@
 #define DEBUG_PRINT(...)
 #endif
 
-#define LOG_P
+// #define LOG_P
 #ifdef LOG_P
 #define LOG_PRINT printf
 #else
@@ -518,19 +518,19 @@ void handle_tick() {
 
 int ck_scale_cond() {
     int num_workers_recv = mstate.num_workers_recv;
-    int num_workers_run = num_workers_run;
+    int num_workers_run = mstate.num_workers_run;
     int ave_cpu_intensive = mstate.num_cpu_intensive / num_workers_recv;
-    int remaining_proj = 0;
-    for (int i = num_workers_recv; i < num_workers_run; i++) {
-        int worker_idx = mstate.idx_array[i];
-        remaining_proj +=
-            mstate.my_worker[worker_idx].num_request_each_type[PROJECTIDEA];
-    }
-    int num_projectidea_now = mstate.num_projectidea - remaining_proj;
+    // int remaining_proj = 0;
+    // for (int i = num_workers_recv; i < num_workers_run; i++) {
+    //     int worker_idx = mstate.idx_array[i];
+    //     remaining_proj +=
+    //         mstate.my_worker[worker_idx].num_request_each_type[PROJECTIDEA];
+    // }
+    // int num_projectidea_now = mstate.num_projectidea - remaining_proj;
     int num_slots_proj = num_workers_run * MAX_RUNNING_PROJECTIDEA;
-    int remaining_slots = num_slots_proj - num_projectidea_now;
+    int remaining_slots = num_slots_proj - mstate.num_projectidea;
     LOG_PRINT("num_projectidea: %d, num_workers_recv: %d",
-              num_projectidea_now, num_workers_recv);
+              mstate.num_projectidea, num_workers_recv);
     LOG_PRINT("remaining_slots: %d\n", remaining_slots);
     LOG_PRINT("ave_cpu_intensive: %d, \n", ave_cpu_intensive);
     LOG_PRINT("num_workers_recv: %d, \n", num_workers_recv);
@@ -542,12 +542,13 @@ int ck_scale_cond() {
     if (num_workers_recv < mstate.max_num_workers
             && mstate.time_since_last_new >= MIN_TIME_BEFORE_NEXT_WORKER) {
         if (ave_cpu_intensive >= SCALEOUT_THRESHOLD
-                || (remaining_slots <= num_workers_run)) {
+                || (remaining_slots <= 2 && num_workers_run > 1)
+                || (remaining_slots <= 1 && num_workers_run == 1)) {
             return 1;
         }
     }
     if (num_workers_recv > 1) {
-        if (ave_cpu_intensive < SCALEIN_THRESHOLD && remaining_slots >= 3) {
+        if (ave_cpu_intensive < SCALEIN_THRESHOLD && remaining_slots > 3) {
             return -1;
         }
     }
