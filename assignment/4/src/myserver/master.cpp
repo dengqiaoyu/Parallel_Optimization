@@ -547,7 +547,7 @@ int ck_scale_cond() {
     }
     if (mstate.num_workers_recv < mstate.max_num_workers
             && mstate.time_since_last_new >= MIN_TIME_BEFORE_NEXT_WORKER) {
-        if (ave_cpu_intensive >= SCALEOUT_THRESHOLD || remaining_slots <= 0) {
+        if (ave_cpu_intensive >= SCALEOUT_THRESHOLD || remaining_slots <= 1) {
             return 1;
         }
     }
