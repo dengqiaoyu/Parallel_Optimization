@@ -38,13 +38,13 @@
 #define COMPPRI_NUM 4
 #define MAX_CACHE_SIZE 100000
 #define MAX_RUNNING_PROJECTIDEA 2
-#define SCALEOUT_THRESHOLD 22
+#define SCALEOUT_THRESHOLD 26
 #define SCALEIN_THRESHOLD 15
 #define NUM_THREAD_NUM 36
-#define NUM_CONTEXT 24
+#define NUM_CONTEXT 26
 #define MIN_TIME_BEFORE_GET_KILLED 1
 #define MIN_TIME_BEFORE_NEXT_WORKER 0
-#define INITIAL_WORKER_NUM 2
+#define INITIAL_WORKER_NUM 1
 
 typedef struct comppri_item {
     int params[COMPPRI_NUM];
@@ -439,6 +439,12 @@ int get_next_worker_idx(int request_type) {
             }
         }
     }
+    if (worker_idx != proj_worker_idx) {
+        LOG_PRINT("#################\n");
+        LOG_PRINT("Give projectidea to a killing worker\n");
+        LOG_PRINT("#################\n");
+        worker_idx = proj_worker_idx;
+    }
     if (get_num_cpu_intensive_per_worker(worker_idx) >= NUM_CONTEXT - MAX_RUNNING_PROJECTIDEA
             && (request_type == WISDOM418 || COUNTERPRIMES)
             && num_recv < num_run) {
@@ -449,13 +455,6 @@ int get_next_worker_idx(int request_type) {
         mstate.my_worker[worker_idx].time_to_be_killed = -1;
         mstate.num_workers_recv++;
     }
-    if (worker_idx != proj_worker_idx) {
-        LOG_PRINT("#################\n");
-        LOG_PRINT("Give projectidea to a killing worker\n");
-        LOG_PRINT("#################\n");
-        worker_idx = proj_worker_idx;
-    }
-
 
     mstate.my_worker[worker_idx].num_request_each_type[request_type]++;
     return worker_idx;
