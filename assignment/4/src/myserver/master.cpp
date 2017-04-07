@@ -108,7 +108,10 @@ int ck_scale_cond();
 int scale_out();
 int scale_in();
 void kill_worker();
+void clear_worker_info(int worker_idx);
 int get_works_num(int worker_idx);
+int get_num_cpu_intensive_per_worker(int worker_id);
+int get_num_projectidea_per_worker(int worker_id);
 
 void master_node_init(int max_workers, int& tick_period) {
 
@@ -612,7 +615,7 @@ void update_time() {
 }
 
 void kill_worker() {
-    for (int i = mstate.num_workers_run - 1; i > mstate.num_workers_recv; i--) {
+    for (int i = mstate.num_workers_recv; i < mstate.num_workers_run; i++) {
         int worker_idx = i;
         int num_works = get_works_num(worker_idx);
         LOG_PRINT("############################\n");
@@ -620,13 +623,29 @@ void kill_worker() {
         LOG_PRINT("############################\n");
         if (mstate.my_worker[worker_idx].time_to_be_killed
                 >= MIN_TIME_BEFORE_GET_KILLED && num_works == 0) {
+            kill_worker_node(mstate.my_worker[worker_idx].worker);
+            clear_worker_info(worker_idx);
             mstate.num_workers_run--;
             mstate.num_workers_plan--;
             // send close request
-            kill_worker_node(mstate.my_worker[worker_idx].worker);
+
             LOG_PRINT("############################\n");
             LOG_PRINT("Kill worker!\n");
             LOG_PRINT("############################\n");
+        }
+    }
+}
+
+void clear_worker_info(int worker_idx) {
+    for (int i = worker_idx + 1; i < mstate.num_workers_run; i++) {
+        mstate.my_worker[i - 1].worker = mstate.my_worker[i].worker;
+        mstate.my_worker[i - 1].sum_primes_countprimes =
+            mstate.my_worker[i].sum_primes_countprimes;
+        mstate.my_worker[i - 1].time_to_be_killed =
+            mstate.my_worker[i].time_to_be_killed;
+        for (int j = 0; j < NUM_TYPES; j++) {
+            mstate.my_worker[i - 1].num_request_each_type[j] =
+                mstate.my_worker[i].num_request_each_type[j];
         }
     }
 }
@@ -637,6 +656,16 @@ int get_works_num(int worker_idx) {
         num_works += mstate.my_worker[worker_idx].num_request_each_type[i];
     }
     return num_works;
+}
+
+int get_num_cpu_intensive_per_worker(int worker_id) {
+    int result = mstate.my_worker[worker_id].num_request_each_type[WISDOM418]
+                 + mstate.my_worker[worker_id].num_request_each_type[COUNTERPRIMES];
+    return result;
+}
+
+int get_num_projectidea_per_worker(int worker_id) {
+    return mstate.my_worker[worker_id].num_request_each_type[PROJECTIDEA];
 }
 
 void printf_worker_info() {
