@@ -1,3 +1,8 @@
+/**
+ * @file This file contians the pre-define for each type of request.
+ * @author Qiaoyu Deng(qdeng), Changkai Zhou(zchangka)
+ * @bug No know bugs
+ */
 #ifndef _REQUEST_TYPE_DEF_H_
 #define _REQUEST_TYPE_DEF_H_
 

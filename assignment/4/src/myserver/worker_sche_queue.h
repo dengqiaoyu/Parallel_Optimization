@@ -1,7 +1,6 @@
 #ifndef _WORKER_H_
 #define _WORKER_H_
 
-// #include <vector>
 #include <pthread.h>
 #include "server/messages.h"
 #include "server/worker.h"
@@ -11,13 +10,6 @@
 
 #define DEFAULT_COMPLEXITY 1000011
 #define SCHEDULER_LENGTH 64
-
-// #define DEBUG
-#ifdef DEBUG
-#define DEBUG_PRINT printf
-#else
-#define DEBUG_PRINT(...)
-#endif
 
 typedef struct fifo_queue_item {
     int complexity;
@@ -132,8 +124,6 @@ void fifo_queue_put(fifo_queue_t *fifo_queue,
     fifo_queue->queue.put_work(fifo_queue_item);
     fifo_queue->item_cnt++;
     pthread_mutex_unlock(&fifo_queue->fifo_lock);
-    DEBUG_PRINT("put in fifo, tag: %d, req: %s\n",
-                req.get_tag(), req.get_request_string().c_str());
 }
 
 int fifo_queue_get(fifo_queue_t *fifo_queue, fifo_queue_item_t &item) {
@@ -215,7 +205,6 @@ int fill_sche_queue(sche_queue_t *sche_queue, fifo_queue_t *fifo_queue) {
     for (actual_len = 0; actual_len < SCHEDULER_LENGTH; actual_len++) {
         fifo_queue_item_t item_temp;
         if (fifo_queue_get(fifo_queue, item_temp) == 1) {
-            // DEBUG_PRINT("enter fifo_queue_get!!!!!!, should only happen once\n");
             fifo_array[actual_len] = item_temp;
         } else break;
     }
@@ -223,8 +212,6 @@ int fill_sche_queue(sche_queue_t *sche_queue, fifo_queue_t *fifo_queue) {
     min_complexity = fifo_array[0].complexity;
     min_idx = 0;
 
-    // DEBUG_PRINT("line %d in fill sche_queue, actual_len: %d\n",
-    //             __LINE__, actual_len);
     int input_len = 0;
     while (input_len != actual_len) {
         for (int i = 0; i < actual_len; i++) {
@@ -244,8 +231,6 @@ int fill_sche_queue(sche_queue_t *sche_queue, fifo_queue_t *fifo_queue) {
         sche_queue->queue.put_work(fifo_array[min_idx].req);
         is_taken[min_idx] = 1;
     }
-    // DEBUG_PRINT("line %d in fill sche_queue, input_len: %d\n",
-    //             __LINE__, input_len);
     pthread_mutex_lock(&sche_queue->updated_lock);
     sche_queue->item_cnt += (input_len - 1);
     pthread_mutex_unlock(&sche_queue->updated_lock);
@@ -257,9 +242,6 @@ int sche_queue_get(sche_queue_t *sche_queue,
                    fifo_queue_t *fifo_queue) {
     pthread_mutex_lock(&sche_queue->sche_lock);
     if (sche_queue->item_cnt == 0) {
-        // if (iiii_global == 1) {
-        //     DEBUG_PRINT("line %d in sche_queue_get\n", __LINE__);
-        // }
         pthread_mutex_lock(&sche_queue->updated_lock);
         if (sche_queue->if_being_updated == 1) {
             pthread_mutex_unlock(&sche_queue->updated_lock);
@@ -276,19 +258,10 @@ int sche_queue_get(sche_queue_t *sche_queue,
             if (ret == 0) return 0;
         }
     } else {
-        // if (iiii_global == 1) {
-        //     DEBUG_PRINT("line %d in sche_queue_get,item_cnt: %d \n",
-        //                 __LINE__, sche_queue->item_cnt);
-        //     DEBUG_PRINT("line %d in sche_queue_get\n", __LINE__);
-        // }
-        DEBUG_PRINT("Maybe I got into here\n");
         sche_queue->item_cnt--;
         pthread_mutex_unlock(&sche_queue->sche_lock);
     }
     req = sche_queue->queue.get_work();
-    // if (iiii_global == 1)
-    //     DEBUG_PRINT("line %d in sche_queue_get, should not print this line\n",
-    //                 __LINE__);
     return 1;
 }
 #endif

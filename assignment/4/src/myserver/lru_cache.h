@@ -1,17 +1,18 @@
+/**
+ * @file This file contains general implementation for LRU cache.
+ * @author Qiaoyu Deng(qdeng)
+ * @bug No know bugs
+ */
+
 #ifndef _LRU_CACHE_H_
 #define _LRU_CACHE_H_
 
 #include <stdlib.h>
 #include <map>
 #include <list>
-#include "server/messages.h"
 
-// #define DEBUG
-#ifdef DEBUG
-#define DEBUG_PRINT printf
-#else
-#define DEBUG_PRINT(...)
-#endif
+/* user defined includes */
+#include "server/messages.h"
 
 template<typename key_t, typename value_t>
 class lru_cache {
@@ -24,14 +25,19 @@ class lru_cache {
 
     void put(const key_t& key, const value_t& value) {
         auto map_it = _cache_map.find(key);
+        /* put the new object in the very front of list */
         _cache_lru_list.push_front(key_value_pair_t(key, value));
+        /* if this key is already mapped, erase the old one. */
         if (map_it != _cache_map.end()) {
             _cache_lru_list.erase(map_it->second);
             _cache_map.erase(map_it);
         }
+        /* map this key to new object */
         _cache_map[key] = _cache_lru_list.begin();
         if (_cache_map.size() > _max_size) {
+            /* if the max size of cache is reached, delete the last element */
             auto last = _cache_lru_list.end();
+            /* return to the last */
             last--;
             _cache_lru_list.pop_back();
             _cache_map.erase(last->first);
@@ -43,6 +49,7 @@ class lru_cache {
         if (map_it == _cache_map.end()) {
             // map not found
         }
+        /* put this object at the front of the list */
         _cache_lru_list.splice(_cache_lru_list.begin(),
                                _cache_lru_list,
                                map_it->second);

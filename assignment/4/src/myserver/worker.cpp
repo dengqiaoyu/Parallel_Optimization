@@ -1,4 +1,13 @@
-
+/**
+ * @file worker.cpp
+ * @brief This file contains the implementation for worker
+ * @author Qiaoyu Deng(qdeng), Changkai Zhou(zchangka)
+ * @bug There is a rare bug, in the situation where thread is going to block on
+ *      cond inside fast_queue_get, but before that some requests other than
+ *      tellmenow reache queue, but thread now cannot know about it, so it will
+ *      still be blocked, until the next request arrives. This situation will
+ *      cause unnecessary blocking, which might harm the performance.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -6,6 +15,7 @@
 #include <glog/logging.h>
 #include <pthread.h>
 
+/* user defined include */
 #include "server/messages.h"
 #include "server/worker.h"
 #include "tools/cycle_timer.h"
@@ -13,86 +23,78 @@
 #include "request_type_def.h"
 #include "return_error.h"
 
-// #define DEBUG
-#ifdef DEBUG
-#define DEBUG_PRINT printf
-#else
-#define DEBUG_PRINT(...)
-#endif
+#define MAX_RUNNING_PROJECTIDEA 2  /* the number of thread that runs in a worker */
+#define NUM_THREAD_NUM 36 /* the number of threads that are launched during initialization */
 
-#define MAX_RUNNING_PROJECTIDEA 2
-#define NUM_THREAD_NUM 36
-
-int tid[NUM_THREAD_NUM];
-
-// TODO remember to remove it
-// void pthread_mutex_lock(pthread_mutex_t *mutex, void *ptr);
-// void pthread_mutex_unlock(pthread_mutex_t *mutex, void *ptr);
+int tid[NUM_THREAD_NUM];  /* thread id */
 
 typedef struct wstate {
-    int worker_id;
-    fifo_queue_t fifo_queue;
-    fast_queue_t fast_queue;
+    int worker_id;              /* the id of worker that is assigned by master */
+    fifo_queue_t fifo_queue;    /* fifo queue is used to save CPU intensive request */
+    fast_queue_t fast_queue;    /* fast queue is used to queue tellmenow or projectidea that needs fast response */
+    /**
+     * this one is used when the requests in fifo queue have different workload,
+     * the first SCHEDULER_LENGTH of requests in fifo will be reordered according
+     * to their computation time(the size of n).
+     */
     sche_queue_t sche_queue;
     int request_running_cnt[NUM_TYPES];
     pthread_mutex_t running_cnt_mutex[NUM_TYPES];
-    pthread_cond_t waiting_cond;
+    pthread_cond_t waiting_cond;  /* when there is no request, thread block at this cond */
 } wstate_t;
 wstate_t wstate;
 
 /* internal function */
+/**
+ * Function that is run by every thread, to get requests and execute.
+ * @param  tid_ptr pointer to thread id
+ * @return         NULL
+ */
 void *worker_exec_request_pthread(void *tid_ptr);
+
+/**
+ * Put request to their queue including fast queue or fifo queue.
+ * @param req_type request type
+ * @param req      request received
+ */
 void enqueue_request(int req_type, const Request_msg & req);
+
+/**
+ * Get request from queue.
+ * @param  wstate       worker state struct
+ * @param  req          request will be put in here.
+ * @param  wait_if_zero Indicate whether thread block at cond, when find no new
+ *                      request
+ * @return              1 for get new request, 0 for no request get.
+ */
 int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero);
+
+/**
+ * Let worker working on that request, and send response back to master
+ * @param req request to be executed
+ */
 void work_on_req(const Request_msg& req);
+
+/**
+ * @param  wstate   worker state struct
+ * @param  req_type the type of request
+ * @return          1 for success, 0 for failed
+ */
 int increase_running_req_cnt(wstate_t *wstate, int req_type);
+
+/**
+ * @param  wstate   worker state struct
+ * @param  req_type the type of request
+ * @return          1 for success, 0 for failed
+ */
 void decrease_running_req_cnt(wstate_t *wstate, int req_type);
-// int get_tellmenow(wstate_t *wstate, Request_msg& req, int& wait_if_zero);
-// int get_projectidea(wstate_t *wstate, Request_msg& req);
 
-// Generate a valid 'countprimes' request dictionary from integer 'n'
-// static void create_computeprimes_req(Request_msg& req, int n) {
-//     std::ostringstream oss;
-//     oss << n;
-//     req.set_arg("cmd", "countprimes");
-//     req.set_arg("n", oss.str());
-// }
-
-// // Implements logic required by compareprimes command via multiple
-// // calls to execute_work.  This function fills in the appropriate
-// // response.
-// static void execute_compareprimes(const Request_msg& req, Response_msg& resp) {
-
-//     int params[4];
-//     int counts[4];
-
-//     // grab the four arguments defining the two ranges
-//     params[0] = atoi(req.get_arg("n1").c_str());
-//     params[1] = atoi(req.get_arg("n2").c_str());
-//     params[2] = atoi(req.get_arg("n3").c_str());
-//     params[3] = atoi(req.get_arg("n4").c_str());
-
-//     for (int i = 0; i < 4; i++) {
-//         Request_msg dummy_req(0);
-//         Response_msg dummy_resp(0);
-//         create_computeprimes_req(dummy_req, params[i]);
-//         execute_work(dummy_req, dummy_resp);
-//         counts[i] = atoi(dummy_resp.get_response().c_str());
-//     }
-
-//     if (counts[1] - counts[0] > counts[3] - counts[2])
-//         resp.set_response("There are more primes in first range.");
-//     else
-//         resp.set_response("There are more primes in second range.");
-// }
-
-
+/**
+ * When worker is newly create, this function is called and initialize new
+ * worker
+ * @param params worker id
+ */
 void worker_node_init(const Request_msg& params) {
-
-    // This is your chance to initialize your worker.  For example, you
-    // might initialize a few data structures, or maybe even spawn a few
-    // pthreads here.  Remember, when running on Amazon servers, worker
-    // processes will run on an instance with a dual-core CPU.
 
     wstate.worker_id = atoi(params.get_arg("worker_id").c_str());
     DLOG(INFO) << "**** Initializing worker: " << params.get_arg("worker_id") << " ****\n";
@@ -131,7 +133,7 @@ void worker_node_init(const Request_msg& params) {
     }
 
     pthread_t work_thread[NUM_THREAD_NUM];
-
+    /* create working threads */
     for (int i = 0; i < NUM_THREAD_NUM; i++) {
         tid[i] = i;
         pthread_create(&work_thread[i],
@@ -141,18 +143,15 @@ void worker_node_init(const Request_msg& params) {
     }
 }
 
+/**
+ * When worker receives new request, this function is called, and put new
+ * request into their queue.
+ * @param req newly received request
+ */
 void worker_handle_request(const Request_msg& req) {
 
-
-    // Make the tag of the reponse match the tag of the request.  This
-    // is a way for your master to match worker responses to requests.
-    // Response_msg resp(req.get_tag());
     DLOG(INFO) << "Worker got request: [" << req.get_tag() << ":" << req.get_request_string() << "]\n";
 
-    DEBUG_PRINT("!!!!!!!!!%d worker got request, request tag: %d, req: %s\n",
-                wstate.worker_id,
-                req.get_tag(),
-                req.get_request_string().c_str());
     int req_type = -1;
     if (req.get_arg("cmd").compare("418wisdom") == 0) {
         req_type = WISDOM418;
@@ -164,69 +163,73 @@ void worker_handle_request(const Request_msg& req) {
         req_type = COUNTERPRIMES;
     }
     enqueue_request(req_type, req);
-    // // Output debugging help to the logs (in a single worker node
-    // // configuration, this would be in the log logs/worker.INFO)
-
-
-    // double startTime = CycleTimer::currentSeconds();
-
-    // if (req.get_arg("cmd").compare("compareprimes") == 0) {
-
-    //     // The compareprimes command needs to be special cased since it is
-    //     // built on four calls to execute_execute work.  All other
-    //     // requests from the client are one-to-one with calls to
-    //     // execute_work.
-
-    //     execute_compareprimes(req, resp);
-
-    // } else {
-
-    //     // actually perform the work.  The response string is filled in by
-    //     // 'execute_work'
-    //     execute_work(req, resp);
-
-    // }
-
-    // double dt = CycleTimer::currentSeconds() - startTime;
-    // DLOG(INFO) << "Worker completed work in " << (1000.f * dt) << " ms (" << req.get_tag()  << ")\n";
-
-    // // send a response string to the master
-    // worker_send_response(resp);
 }
 
+/**
+ * Function that is run by every thread, to get requests and execute.
+ * @param  tid_ptr pointer to thread id
+ * @return         NULL
+ */
 void *worker_exec_request_pthread(void *tid_ptr) {
-    int tid = *(int *)tid_ptr;
-    // printf("Hi, I am thread %d\n", tid);
     int ret = 1;
     int wait_if_zero = 0;
-    // exit(-1);
+
     Request_msg req;
     int i_test = 0;
+    /* Continue getting requests and working on it. */
     while (1) {
         while (1) {
             ret = get_req(&wstate, req, wait_if_zero);
-            // DEBUG_PRINT("originally, i: %d should never be greater than 2\n",
-            //             i);
-            if (ret) {
-                break;
-            }
+            if (ret) break;
+            /**
+             * If last time of scanning for new request return nothing,we
+             * let wait_if_zero be 1, which will cause thread block on cond, if
+             * it cannot find new request in fast queue.
+             */
             wait_if_zero = 1;
         }
-        DEBUG_PRINT("worker %d thread %d, Going to work on request %d, arg: %s\n",
-                    wstate.worker_id,
-                    tid,
-                    req.get_tag(),
-                    req.get_request_string().c_str());
         work_on_req(req);
     }
 
     return NULL;
 }
 
+/**
+ * Put request to their queue including fast queue or fifo queue.
+ * @param req_type request type
+ * @param req      request received
+ */
+void enqueue_request(int req_type, const Request_msg & req) {
+    switch (req_type) {
+    case WISDOM418:
+    case COUNTERPRIMES:
+        fifo_queue_put(&wstate.fifo_queue, req, req_type);
+        break;
+    case PROJECTIDEA:
+    case TELLMENOW:
+        fast_queue_put(&wstate.fast_queue, req, req_type);
+        break;
+    default:
+        break;
+    }
+    pthread_cond_signal(&wstate.waiting_cond);
+}
+
+
+/**
+ * Get request from queue.
+ * @param  wstate       worker state struct
+ * @param  req          request will be put in here.
+ * @param  wait_if_zero Indicate whether thread block at cond, when find no new
+ *                      request
+ * @return              1 for get new request, 0 for no request get.
+ */
 int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
     int ret = 0;
 
     ret = 1;
+    /* get tellmenow firstly */
+    // ret = increase_running_req_cnt(wstate, TELLMENOW);
     if (ret) {
         ret = fast_queue_get(&wstate->fast_queue,
                              req,
@@ -237,7 +240,7 @@ int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
         // else decrease_running_req_cnt(wstate, TELLMENOW);
     }
 
-    // ret = increase_running_req_cnt(wstate, TELLMENOW);
+    /* and then get projectidea */
     ret = increase_running_req_cnt(wstate, PROJECTIDEA);
     if (ret) {
         ret = fast_queue_get(&wstate->fast_queue,
@@ -249,6 +252,7 @@ int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
         else decrease_running_req_cnt(wstate, PROJECTIDEA);
     }
 
+    /* get other CPU intensive work */
     // ret = sche_queue_get(&wstate->sche_queue, req, &wstate->fifo_queue);
     fifo_queue_item_t fifo_queue_item;
     ret = fifo_queue_get(&wstate->fifo_queue, fifo_queue_item);
@@ -259,6 +263,23 @@ int get_req(wstate_t *wstate, Request_msg& req, int& wait_if_zero) {
     return 0;
 }
 
+/**
+ * Let worker working on that request, and send response back to master
+ * @param req request to be executed
+ */
+void work_on_req(const Request_msg& req) {
+    Response_msg resp(req.get_tag());
+    execute_work(req, resp);
+    if (req.get_arg("cmd").compare("projectidea") == 0)
+        decrease_running_req_cnt(&wstate, PROJECTIDEA);
+    worker_send_response(resp);
+}
+
+/**
+ * @param  wstate   worker state struct
+ * @param  req_type the type of request
+ * @return          1 for success, 0 for failed
+ */
 int increase_running_req_cnt(wstate_t *wstate, int req_type) {
     switch (req_type) {
     case WISDOM418:
@@ -286,6 +307,11 @@ int increase_running_req_cnt(wstate_t *wstate, int req_type) {
     return 1;
 }
 
+/**
+ * @param  wstate   worker state struct
+ * @param  req_type the type of request
+ * @return          1 for success, 0 for failed
+ */
 void decrease_running_req_cnt(wstate_t *wstate, int req_type) {
     switch (req_type) {
     case WISDOM418:
@@ -306,30 +332,3 @@ void decrease_running_req_cnt(wstate_t *wstate, int req_type) {
         break;
     }
 }
-
-void work_on_req(const Request_msg& req) {
-    Response_msg resp(req.get_tag());
-    execute_work(req, resp);
-    DEBUG_PRINT("worker %d is going to send resp: %s for req %d to master\n",
-                wstate.worker_id, resp.get_response().c_str(), req.get_tag());
-    if (req.get_arg("cmd").compare("projectidea") == 0)
-        decrease_running_req_cnt(&wstate, PROJECTIDEA);
-    worker_send_response(resp);
-}
-
-void enqueue_request(int req_type, const Request_msg & req) {
-    switch (req_type) {
-    case WISDOM418:
-    case COUNTERPRIMES:
-        fifo_queue_put(&wstate.fifo_queue, req, req_type);
-        break;
-    case PROJECTIDEA:
-    case TELLMENOW:
-        fast_queue_put(&wstate.fast_queue, req, req_type);
-        break;
-    default:
-        break;
-    }
-    pthread_cond_signal(&wstate.waiting_cond);
-}
-
