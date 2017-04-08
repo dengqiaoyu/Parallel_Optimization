@@ -1,0 +1,68 @@
+
+spawning master process on compute-0-31.local (0 of 5)
+compute-0-21 compute-0-25 compute-0-27 compute-0-29 compute-0-31
+Username is  qdeng
+command was: '/home/qdeng/4/harness.sh 4 tests/grading_compareprimes.txt'
+Waiting for server to initialize...
+Server ready, beginning trace...
+Request 0: req: "cmd=compareprimes;n1=803182;n2=837769;n3=603566;n4=668229", resp: "There are more primes in second range.", latency: 844 ms
+Request 1: req: "cmd=compareprimes;n1=661974;n2=704510;n3=621325;n4=813520", resp: "There are more primes in second range.", latency: 847 ms
+Request 2: req: "cmd=compareprimes;n1=624059;n2=791933;n3=773594;n4=859536", resp: "There are more primes in first range.", latency: 948 ms
+Request 3: req: "cmd=compareprimes;n1=604197;n2=822011;n3=505616;n4=719480", resp: "There are more primes in first range.", latency: 881 ms
+Request 4: req: "cmd=compareprimes;n1=659529;n2=787882;n3=767261;n4=829938", resp: "There are more primes in first range.", latency: 870 ms
+Request 5: req: "cmd=compareprimes;n1=500457;n2=697431;n3=597564;n4=847041", resp: "There are more primes in second range.", latency: 902 ms
+Request 6: req: "cmd=compareprimes;n1=630082;n2=848189;n3=576427;n4=727004", resp: "There are more primes in first range.", latency: 902 ms
+Request 7: req: "cmd=compareprimes;n1=595446;n2=887017;n3=679188;n4=821272", resp: "There are more primes in first range.", latency: 919 ms
+Request 8: req: "cmd=compareprimes;n1=532178;n2=628022;n3=703176;n4=873134", resp: "There are more primes in second range.", latency: 935 ms
+Request 9: req: "cmd=compareprimes;n1=543623;n2=720507;n3=718976;n4=782625", resp: "There are more primes in first range.", latency: 822 ms
+Request 10: req: "cmd=compareprimes;n1=716113;n2=825787;n3=741274;n4=885536", resp: "There are more primes in second range.", latency: 934 ms
+Request 11: req: "cmd=compareprimes;n1=677996;n2=735047;n3=653960;n4=738515", resp: "There are more primes in second range.", latency: 784 ms
+Request 12: req: "cmd=compareprimes;n1=616132;n2=730260;n3=574691;n4=575756", resp: "There are more primes in first range.", latency: 692 ms
+Request 13: req: "cmd=compareprimes;n1=745109;n2=762664;n3=535929;n4=690612", resp: "There are more primes in second range.", latency: 782 ms
+Request 15: req: "cmd=lastrequest", resp: "ack", latency: 0 ms
+Request 14: req: "cmd=compareprimes;n1=803042;n2=850709;n3=836984;n4=869353", resp: "There are more primes in first range.", latency: 964 ms
+
+--- Results Summary ---
+
+[0] Request: cmd=compareprimes;n1=803182;n2=837769;n3=603566;n4=668229, success: YES, latency: 844
+[1] Request: cmd=compareprimes;n1=661974;n2=704510;n3=621325;n4=813520, success: YES, latency: 847
+[2] Request: cmd=compareprimes;n1=624059;n2=791933;n3=773594;n4=859536, success: YES, latency: 948
+[3] Request: cmd=compareprimes;n1=604197;n2=822011;n3=505616;n4=719480, success: YES, latency: 881
+[4] Request: cmd=compareprimes;n1=659529;n2=787882;n3=767261;n4=829938, success: YES, latency: 870
+[5] Request: cmd=compareprimes;n1=500457;n2=697431;n3=597564;n4=847041, success: YES, latency: 902
+[6] Request: cmd=compareprimes;n1=630082;n2=848189;n3=576427;n4=727004, success: YES, latency: 902
+[7] Request: cmd=compareprimes;n1=595446;n2=887017;n3=679188;n4=821272, success: YES, latency: 919
+[8] Request: cmd=compareprimes;n1=532178;n2=628022;n3=703176;n4=873134, success: YES, latency: 935
+[9] Request: cmd=compareprimes;n1=543623;n2=720507;n3=718976;n4=782625, success: YES, latency: 822
+[10] Request: cmd=compareprimes;n1=716113;n2=825787;n3=741274;n4=885536, success: YES, latency: 934
+[11] Request: cmd=compareprimes;n1=677996;n2=735047;n3=653960;n4=738515, success: YES, latency: 784
+[12] Request: cmd=compareprimes;n1=616132;n2=730260;n3=574691;n4=575756, success: YES, latency: 692
+[13] Request: cmd=compareprimes;n1=745109;n2=762664;n3=535929;n4=690612, success: YES, latency: 782
+[14] Request: cmd=compareprimes;n1=803042;n2=850709;n3=836984;n4=869353, success: YES, latency: 964
+
+*** The results are correct! ***
+
+Avg request latency:  868.90 ms
+Total test time:      7.97 sec
+Workers booted:       1
+Compute used:         8.21 sec
+
+----------------------------------------------------------------
+Grade: 12 of 12 points
+         + 2 points for correctness
+         + 10 points for perf
+         - 0 points for worker usage
+
+         100.0% requests met the 2000 ms latency requirement
+----------------------------------------------------------------
+
+Grading Details:
+  Perf:  * You get one credit per response under 2000 ms.
+         * Perf points are: 10 * (num_credits / max_credits) / 0.9
+              (the 0.9 is for slop: only 90\% of reponses must meet threshold)
+
+  Usage: * No resource penalty up to 10 CPU-seconds.
+         * Linear falloff to minus 50% points at 20 sec
+
+
+Cleaning up after a completed test...

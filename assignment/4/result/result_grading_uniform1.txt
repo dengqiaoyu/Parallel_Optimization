@@ -1,0 +1,856 @@
+
+spawning master process on compute-0-31.local (0 of 5)
+compute-0-21 compute-0-25 compute-0-27 compute-0-29 compute-0-31
+Username is  qdeng
+command was: '/home/qdeng/4/harness.sh 4 tests/grading_uniform1.txt'
+Waiting for server to initialize...
+Server ready, beginning trace...
+Request 0: req: "cmd=countprimes;n=848393", resp: "67497", latency: 840 ms
+Request 1: req: "cmd=countprimes;n=779069", resp: "62402", latency: 776 ms
+Request 10: req: "cmd=countprimes;n=848393", resp: "67497", latency: 0 ms
+Request 12: req: "cmd=countprimes;n=779069", resp: "62402", latency: 0 ms
+Request 3: req: "cmd=countprimes;n=834567", resp: "66499", latency: 939 ms
+Request 2: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 1125 ms
+Request 4: req: "cmd=countprimes;n=780123", resp: "62475", latency: 925 ms
+ Request 16: req: "cmd=countprimes;n=834567", resp: "66499", latency: 25 ms
+Request 18: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 6: req: "cmd=countprimes;n=830237", resp: "66175", latency: 889 ms
+Request 22: req: "cmd=countprimes;n=830237", resp: "66175", latency: 0 ms
+Request 5: req: "cmd=countprimes;n=990611", resp: "77823", latency: 1163 ms
+Request 9: req: "cmd=countprimes;n=709907", resp: "57297", latency: 803 ms
+Request 8: req: "cmd=countprimes;n=929777", resp: "73458", latency: 1109 ms
+Request 28: req: "cmd=countprimes;n=709907", resp: "57297", latency: 9 ms
+Request 7: req: "cmd=countprimes;n=950923", resp: "74977", latency: 1249 ms
+Request 30: req: "cmd=countprimes;n=848393", resp: "67497", latency: 0 ms
+Request 32: req: "cmd=countprimes;n=779069", resp: "62402", latency: 0 ms
+Request 34: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 0 ms
+Request 15: req: "cmd=countprimes;n=826171", resp: "65890", latency: 979 ms
+Request 36: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 38: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 11: req: "cmd=countprimes;n=953327", resp: "75151", latency: 1417 ms
+Request 14: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 1267 ms
+Request 40: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 42: req: "cmd=countprimes;n=830237", resp: "66175", latency: 0 ms
+Request 17: req: "cmd=countprimes;n=777675", resp: "62294", latency: 1279 ms
+Request 19: req: "cmd=countprimes;n=853382", resp: "67860", latency: 1196 ms
+ Request 21: req: "cmd=countprimes;n=821480", resp: "65528", latency: 1096 ms
+Request 44: req: "cmd=countprimes;n=950923", resp: "74977", latency: 0 ms
+Request 13: req: "cmd=countprimes;n=927387", resp: "73285", latency: 1591 ms
+Request 46: req: "cmd=countprimes;n=929777", resp: "73458", latency: 39 ms
+Request 27: req: "cmd=countprimes;n=842979", resp: "67109", latency: 1019 ms
+Request 48: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 23: req: "cmd=countprimes;n=935140", resp: "73846", latency: 1339 ms
+Request 50: req: "cmd=countprimes;n=848393", resp: "67497", latency: 39 ms
+Request 52: req: "cmd=countprimes;n=779069", resp: "62402", latency: 0 ms
+Request 25: req: "cmd=countprimes;n=790994", resp: "63283", latency: 1439 ms
+Request 54: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 76 ms
+Request 20: req: "cmd=countprimes;n=990611", resp: "77823", latency: 1776 ms
+ Request 35: req: "cmd=countprimes;n=784551", resp: "62810", latency: 1026 ms
+Request 31: req: "cmd=countprimes;n=972434", resp: "76542", latency: 1264 ms
+Request 56: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 58: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 24: req: "cmd=countprimes;n=950923", resp: "74977", latency: 1754 ms
+Request 60: req: "cmd=countprimes;n=990611", resp: "77823", latency: 0 ms
+Request 39: req: "cmd=countprimes;n=885511", resp: "70225", latency: 1139 ms
+ Request 29: req: "cmd=countprimes;n=875015", resp: "69449", latency: 1640 ms
+Request 26: req: "cmd=countprimes;n=929777", resp: "73458", latency: 1836 ms
+Request 33: req: "cmd=countprimes;n=851406", resp: "67723", latency: 1510 ms
+Request 62: req: "cmd=countprimes;n=830237", resp: "66175", latency: 76 ms
+Request 37: req: "cmd=countprimes;n=926742", resp: "73243", latency: 1389 ms
+ Request 41: req: "cmd=countprimes;n=775152", resp: "62114", latency: 1189 ms
+Request 64: req: "cmd=countprimes;n=950923", resp: "74977", latency: 79 ms
+Request 66: req: "cmd=countprimes;n=929777", resp: "73458", latency: 79 ms
+Request 68: req: "cmd=countprimes;n=709907", resp: "57297", latency: 79 ms
+Request 70: req: "cmd=countprimes;n=848393", resp: "67497", latency: 79 ms
+Request 72: req: "cmd=countprimes;n=779069", resp: "62402", latency: 79 ms
+ Request 47: req: "cmd=countprimes;n=943065", resp: "74418", latency: 1329 ms
+Request 74: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 39 ms
+Request 45: req: "cmd=countprimes;n=994836", resp: "78124", latency: 1554 ms
+ Request 43: req: "cmd=countprimes;n=972924", resp: "76573", latency: 1654 ms
+Request 76: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 61: req: "cmd=countprimes;n=730210", resp: "58800", latency: 839 ms
+Request 51: req: "cmd=countprimes;n=793044", resp: "63438", latency: 1426 ms
+ Request 78: req: "cmd=countprimes;n=780123", resp: "62475", latency: 76 ms
+Request 55: req: "cmd=countprimes;n=969652", resp: "76323", latency: 1230 ms
+Request 80: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 57: req: "cmd=countprimes;n=905195", resp: "71650", latency: 1210 ms
+Request 82: req: "cmd=countprimes;n=830237", resp: "66175", latency: 40 ms
+Request 63: req: "cmd=countprimes;n=830251", resp: "66176", latency: 1001 ms
+Request 84: req: "cmd=countprimes;n=950923", resp: "74977", latency: 0 ms
+Request 86: req: "cmd=countprimes;n=929777", resp: "73458", latency: 0 ms
+Request 53: req: "cmd=countprimes;n=918950", resp: "72660", latency: 1676 ms
+Request 88: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 90: req: "cmd=countprimes;n=848393", resp: "67497", latency: 39 ms
+Request 49: req: "cmd=countprimes;n=970650", resp: "76395", latency: 2129 ms
+Request 59: req: "cmd=countprimes;n=841643", resp: "67007", latency: 1673 ms
+Request 92: req: "cmd=countprimes;n=779069", resp: "62402", latency: 39 ms
+Request 94: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 0 ms
+Request 75: req: "cmd=countprimes;n=778147", resp: "62329", latency: 979 ms
+Request 67: req: "cmd=countprimes;n=973904", resp: "76639", latency: 1437 ms
+Request 96: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 81: req: "cmd=countprimes;n=704212", resp: "56860", latency: 879 ms
+Request 73: req: "cmd=countprimes;n=959593", resp: "75588", latency: 1279 ms
+Request 98: req: "cmd=countprimes;n=780123", resp: "62475", latency: 39 ms
+Request 65: req: "cmd=countprimes;n=883266", resp: "70065", latency: 1719 ms
+Request 79: req: "cmd=countprimes;n=864610", resp: "68688", latency: 1041 ms
+Request 69: req: "cmd=countprimes;n=989982", resp: "77776", latency: 1580 ms
+Request 100: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 71: req: "cmd=countprimes;n=843103", resp: "67116", latency: 1539 ms
+Request 102: req: "cmd=countprimes;n=830237", resp: "66175", latency: 39 ms
+Request 77: req: "cmd=countprimes;n=941509", resp: "74302", latency: 1375 ms
+Request 85: req: "cmd=countprimes;n=819647", resp: "65388", latency: 984 ms
+ Request 104: req: "cmd=countprimes;n=950923", resp: "74977", latency: 34 ms
+Request 106: req: "cmd=countprimes;n=929777", resp: "73458", latency: 39 ms
+Request 108: req: "cmd=countprimes;n=709907", resp: "57297", latency: 0 ms
+Request 110: req: "cmd=countprimes;n=848393", resp: "67497", latency: 0 ms
+Request 87: req: "cmd=countprimes;n=947454", resp: "74728", latency: 1179 ms
+Request 89: req: "cmd=countprimes;n=900446", resp: "71305", latency: 1166 ms
+ Request 83: req: "cmd=countprimes;n=915912", resp: "72430", latency: 1466 ms
+Request 112: req: "cmd=countprimes;n=779069", resp: "62402", latency: 39 ms
+Request 114: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 0 ms
+Request 91: req: "cmd=countprimes;n=700342", resp: "56570", latency: 1179 ms
+Request 116: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 118: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 120: req: "cmd=countprimes;n=990611", resp: "77823", latency: 0 ms
+Request 97: req: "cmd=countprimes;n=773173", resp: "61969", latency: 1172 msRequest 99: req: "cmd=countprimes;n=797561", resp: "63776", latency: 1072 ms
+
+Request 122: req: "cmd=countprimes;n=830237", resp: "66175", latency: 0 ms
+Request 95: req: "cmd=countprimes;n=960281", resp: "75638", latency: 1479 ms
+Request 124: req: "cmd=countprimes;n=950923", resp: "74977", latency: 39 ms
+Request 126: req: "cmd=countprimes;n=929777", resp: "73458", latency: 0 ms
+Request 107: req: "cmd=countprimes;n=771585", resp: "61855", latency: 951 ms
+Request 93: req: "cmd=countprimes;n=848073", resp: "67476", latency: 1651 ms
+Request 128: req: "cmd=countprimes;n=709907", resp: "57297", latency: 26 ms
+Request 101: req: "cmd=countprimes;n=961142", resp: "75703", latency: 1416 ms
+ Request 103: req: "cmd=countprimes;n=757320", resp: "60774", latency: 1316 ms
+Request 105: req: "cmd=countprimes;n=870253", resp: "69117", latency: 1279 ms
+Request 130: req: "cmd=countprimes;n=848393", resp: "67497", latency: 39 ms
+Request 132: req: "cmd=countprimes;n=779069", resp: "62402", latency: 0 ms
+Request 109: req: "cmd=countprimes;n=990263", resp: "77792", latency: 1239 ms
+Request 115: req: "cmd=countprimes;n=724133", resp: "58353", latency: 979 ms
+ Request 113: req: "cmd=countprimes;n=834391", resp: "66490", latency: 1079 ms
+Request 134: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 39 ms
+Request 136: req: "cmd=countprimes;n=834567", resp: "66499", latency: 0 ms
+Request 138: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 117: req: "cmd=countprimes;n=796016", resp: "63662", latency: 1079 ms
+Request 119: req: "cmd=countprimes;n=852382", resp: "67792", latency: 1058 ms
+Request 140: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 142: req: "cmd=countprimes;n=830237", resp: "66175", latency: 0 ms
+Request 111: req: "cmd=countprimes;n=940954", resp: "74258", latency: 1628 ms
+Request 123: req: "cmd=countprimes;n=732717", resp: "58985", latency: 1039 ms
+Request 144: req: "cmd=countprimes;n=950923", resp: "74977", latency: 39 ms
+Request 146: req: "cmd=countprimes;n=929777", resp: "73458", latency: 0 ms
+Request 121: req: "cmd=countprimes;n=979851", resp: "77058", latency: 1265 ms
+Request 125: req: "cmd=countprimes;n=865380", resp: "68750", latency: 1145 ms
+Request 148: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 150: req: "cmd=countprimes;n=848393", resp: "67497", latency: 39 ms
+Request 152: req: "cmd=countprimes;n=779069", resp: "62402", latency: 0 ms
+Request 127: req: "cmd=countprimes;n=911969", resp: "72168", latency: 1339 ms
+Request 154: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 39 ms
+Request 133: req: "cmd=countprimes;n=862085", resp: "68499", latency: 1139 ms
+Request 131: req: "cmd=countprimes;n=944340", resp: "74510", latency: 1279 ms
+Request 156: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 137: req: "cmd=countprimes;n=880956", resp: "69900", latency: 1039 ms
+Request 129: req: "cmd=countprimes;n=864232", resp: "68661", latency: 1453 ms
+Request 158: req: "cmd=countprimes;n=780123", resp: "62475", latency: 39 ms
+Request 160: req: "cmd=countprimes;n=990611", resp: "77823", latency: 0 ms
+Request 139: req: "cmd=countprimes;n=876285", resp: "69553", latency: 1063 ms
+Request 135: req: "cmd=countprimes;n=989152", resp: "77713", latency: 1358 ms
+Request 162: req: "cmd=countprimes;n=830237", resp: "66175", latency: 39 ms
+Request 164: req: "cmd=countprimes;n=950923", resp: "74977", latency: 0 ms
+Request 143: req: "cmd=countprimes;n=878886", resp: "69741", latency: 1121 ms
+Request 141: req: "cmd=countprimes;n=833497", resp: "66432", latency: 1261 ms
+Request 166: req: "cmd=countprimes;n=929777", resp: "73458", latency: 39 ms
+Request 168: req: "cmd=countprimes;n=709907", resp: "57297", latency: 0 ms
+Request 151: req: "cmd=countprimes;n=756817", resp: "60743", latency: 938 ms
+Request 170: req: "cmd=countprimes;n=848393", resp: "67497", latency: 39 ms
+Request 145: req: "cmd=countprimes;n=815470", resp: "65083", latency: 1299 ms
+Request 172: req: "cmd=countprimes;n=779069", resp: "62402", latency: 39 ms
+Request 149: req: "cmd=countprimes;n=787099", resp: "62993", latency: 1229 ms
+Request 153: req: "cmd=countprimes;n=756019", resp: "60689", latency: 1039 ms
+Request 174: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 39 ms
+Request 147: req: "cmd=countprimes;n=872695", resp: "69293", latency: 1448 ms
+Request 176: req: "cmd=countprimes;n=834567", resp: "66499", latency: 40 ms
+Request 178: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 155: req: "cmd=countprimes;n=883832", resp: "70107", latency: 1169 ms
+Request 180: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 159: req: "cmd=countprimes;n=842959", resp: "67107", latency: 1110 ms
+Request 161: req: "cmd=countprimes;n=726947", resp: "58559", latency: 1037 ms
+Request 182: req: "cmd=countprimes;n=830237", resp: "66175", latency: 39 ms
+Request 184: req: "cmd=countprimes;n=950923", resp: "74977", latency: 0 ms
+Request 157: req: "cmd=countprimes;n=896998", resp: "71062", latency: 1379 ms
+Request 186: req: "cmd=countprimes;n=929777", resp: "73458", latency: 39 ms
+Request 163: req: "cmd=countprimes;n=927281", resp: "73278", latency: 1192 ms
+Request 188: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 165: req: "cmd=countprimes;n=963031", resp: "75846", latency: 1239 ms
+Request 190: req: "cmd=countprimes;n=848393", resp: "67497", latency: 39 ms
+Request 192: req: "cmd=countprimes;n=779069", resp: "62402", latency: 0 ms
+Request 169: req: "cmd=countprimes;n=952738", resp: "75107", latency: 1239 ms
+Request 194: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 39 ms
+Request 171: req: "cmd=countprimes;n=969452", resp: "76309", latency: 1264 ms
+Request 167: req: "cmd=countprimes;n=977015", resp: "76862", latency: 1479 ms
+Request 196: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 175: req: "cmd=countprimes;n=862180", resp: "68508", latency: 1140 ms
+Request 198: req: "cmd=countprimes;n=780123", resp: "62475", latency: 39 ms
+Request 200: req: "cmd=countprimes;n=990611", resp: "77823", latency: 0 ms
+Request 173: req: "cmd=countprimes;n=976925", resp: "76858", latency: 1379 ms
+Request 181: req: "cmd=countprimes;n=782690", resp: "62671", latency: 1045 ms
+ Request 177: req: "cmd=countprimes;n=817389", resp: "65227", latency: 1245 ms
+Request 202: req: "cmd=countprimes;n=830237", resp: "66175", latency: 39 ms
+Request 204: req: "cmd=countprimes;n=950923", resp: "74977", latency: 0 ms
+Request 206: req: "cmd=countprimes;n=929777", resp: "73458", latency: 39 ms
+Request 208: req: "cmd=countprimes;n=709907", resp: "57297", latency: 0 ms
+Request 185: req: "cmd=countprimes;n=954846", resp: "75254", latency: 1150 ms
+ Request 183: req: "cmd=countprimes;n=943489", resp: "74452", latency: 1250 ms
+Request 210: req: "cmd=countprimes;n=848393", resp: "67497", latency: 0 ms
+Request 179: req: "cmd=countprimes;n=911585", resp: "72134", latency: 1647 ms
+ Request 189: req: "cmd=countprimes;n=876940", resp: "69601", latency: 1147 ms
+Request 212: req: "cmd=countprimes;n=779069", resp: "62402", latency: 39 ms
+Request 214: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 0 ms
+Request 187: req: "cmd=countprimes;n=968512", resp: "76245", latency: 1435 ms
+Request 195: req: "cmd=countprimes;n=835169", resp: "66544", latency: 1079 ms
+Request 216: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 218: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 193: req: "cmd=countprimes;n=873909", resp: "69368", latency: 1339 ms
+Request 191: req: "cmd=countprimes;n=984930", resp: "77416", latency: 1444 ms
+Request 220: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 222: req: "cmd=countprimes;n=830237", resp: "66175", latency: 0 ms
+Request 197: req: "cmd=countprimes;n=898074", resp: "71143", latency: 1379 ms
+Request 224: req: "cmd=countprimes;n=950923", resp: "74977", latency: 39 ms
+Request 205: req: "cmd=countprimes;n=724711", resp: "58394", latency: 990 ms
+Request 226: req: "cmd=countprimes;n=929777", resp: "73458", latency: 39 ms
+Request 228: req: "cmd=countprimes;n=709907", resp: "57297", latency: 0 ms
+Request 199: req: "cmd=countprimes;n=998878", resp: "78422", latency: 1479 ms
+Request 209: req: "cmd=countprimes;n=845933", resp: "67321", latency: 1038 ms
+Request 207: req: "cmd=countprimes;n=883835", resp: "70107", latency: 1178 ms
+Request 201: req: "cmd=countprimes;n=975083", resp: "76731", latency: 1478 ms
+Request 230: req: "cmd=countprimes;n=848393", resp: "67497", latency: 39 ms
+Request 232: req: "cmd=countprimes;n=779069", resp: "62402", latency: 0 ms
+Request 203: req: "cmd=countprimes;n=937998", resp: "74047", latency: 1479 ms
+Request 215: req: "cmd=countprimes;n=772910", resp: "61949", latency: 937 ms
+Request 211: req: "cmd=countprimes;n=889044", resp: "70492", latency: 1137 ms
+Request 234: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 39 ms
+Request 236: req: "cmd=countprimes;n=834567", resp: "66499", latency: 0 ms
+Request 238: req: "cmd=countprimes;n=780123", resp: "62475", latency: 39 ms
+Request 240: req: "cmd=countprimes;n=990611", resp: "77823", latency: 0 ms
+Request 217: req: "cmd=countprimes;n=919447", resp: "72698", latency: 1179 ms
+ Request 213: req: "cmd=countprimes;n=953524", resp: "75165", latency: 1379 ms
+Request 242: req: "cmd=countprimes;n=830237", resp: "66175", latency: 0 ms
+Request 219: req: "cmd=countprimes;n=735140", resp: "59166", latency: 1239 ms
+Request 244: req: "cmd=countprimes;n=950923", resp: "74977", latency: 39 ms
+Request 223: req: "cmd=countprimes;n=938375", resp: "74079", latency: 1139 ms
+Request 246: req: "cmd=countprimes;n=929777", resp: "73458", latency: 39 ms
+Request 221: req: "cmd=countprimes;n=766138", resp: "61446", latency: 1357 ms
+Request 248: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 250: req: "cmd=countprimes;n=848393", resp: "67497", latency: 0 ms
+Request 225: req: "cmd=countprimes;n=799761", resp: "63935", latency: 1372 ms
+Request 252: req: "cmd=countprimes;n=779069", resp: "62402", latency: 39 ms
+Request 229: req: "cmd=countprimes;n=730182", resp: "58798", latency: 1261 ms
+Request 254: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 33 ms
+Request 233: req: "cmd=countprimes;n=909301", resp: "71970", latency: 1123 ms
+Request 231: req: "cmd=countprimes;n=743907", resp: "59805", latency: 1231 ms
+Request 256: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 258: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 227: req: "cmd=countprimes;n=944774", resp: "74546", latency: 1579 ms
+Request 260: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 235: req: "cmd=countprimes;n=713570", resp: "57577", latency: 1309 ms
+Request 262: req: "cmd=countprimes;n=830237", resp: "66175", latency: 0 ms
+Request 264: req: "cmd=countprimes;n=950923", resp: "74977", latency: 0 ms
+Request 266: req: "cmd=countprimes;n=929777", resp: "73458", latency: 0 ms
+Request 237: req: "cmd=countprimes;n=872160", resp: "69247", latency: 1469 ms
+Request 268: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 270: req: "cmd=countprimes;n=848393", resp: "67497", latency: 0 ms
+Request 241: req: "cmd=countprimes;n=860259", resp: "68358", latency: 1555 ms
+ Request 245: req: "cmd=countprimes;n=708009", resp: "57153", latency: 1355 ms
+Request 272: req: "cmd=countprimes;n=779069", resp: "62402", latency: 39 ms
+Request 274: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 0 ms
+Request 239: req: "cmd=countprimes;n=973005", resp: "76580", latency: 1779 ms
+ Request 255: req: "cmd=countprimes;n=811042", resp: "64763", latency: 979 ms
+Request 243: req: "cmd=countprimes;n=904177", resp: "71568", latency: 1659 ms
+Request 276: req: "cmd=countprimes;n=834567", resp: "66499", latency: 9 ms
+Request 253: req: "cmd=countprimes;n=817363", resp: "65226", latency: 1208 ms
+Request 278: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 249: req: "cmd=countprimes;n=881902", resp: "69965", latency: 1479 ms
+Request 259: req: "cmd=countprimes;n=710917", resp: "57375", latency: 1069 ms
+Request 280: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 282: req: "cmd=countprimes;n=830237", resp: "66175", latency: 0 ms
+Request 251: req: "cmd=countprimes;n=872786", resp: "69298", latency: 1643 ms
+Request 247: req: "cmd=countprimes;n=890500", resp: "70586", latency: 1856 ms
+Request 284: req: "cmd=countprimes;n=950923", resp: "74977", latency: 39 ms
+Request 267: req: "cmd=countprimes;n=737168", resp: "59316", latency: 922 ms
+Request 286: req: "cmd=countprimes;n=929777", resp: "73458", latency: 39 ms
+Request 261: req: "cmd=countprimes;n=706490", resp: "57037", latency: 1325 ms
+Request 265: req: "cmd=countprimes;n=755491", resp: "60656", latency: 1139 ms
+Request 288: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 290: req: "cmd=countprimes;n=848393", resp: "67497", latency: 36 ms
+Request 269: req: "cmd=countprimes;n=763173", resp: "61217", latency: 1126 ms
+Request 275: req: "cmd=countprimes;n=706834", resp: "57064", latency: 826 ms
+Request 257: req: "cmd=countprimes;n=994155", resp: "78070", latency: 1785 ms
+Request 292: req: "cmd=countprimes;n=779069", resp: "62402", latency: 39 ms
+Request 294: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 0 ms
+Request 296: req: "cmd=countprimes;n=834567", resp: "66499", latency: 0 ms
+Request 279: req: "cmd=countprimes;n=730450", resp: "58813", latency: 925 ms
+Request 273: req: "cmd=countprimes;n=981091", resp: "77143", latency: 1237 ms
+Request 277: req: "cmd=countprimes;n=827686", resp: "65997", latency: 1047 ms
+Request 271: req: "cmd=countprimes;n=940224", resp: "74202", latency: 1347 ms
+Request 298: req: "cmd=countprimes;n=780123", resp: "62475", latency: 39 ms
+Request 281: req: "cmd=countprimes;n=777976", resp: "62313", latency: 928 ms
+Request 300: req: "cmd=countprimes;n=990611", resp: "77823", latency: 40 ms
+Request 263: req: "cmd=countprimes;n=988310", resp: "77657", latency: 1939 ms
+Request 302: req: "cmd=countprimes;n=830237", resp: "66175", latency: 39 ms
+Request 304: req: "cmd=countprimes;n=950923", resp: "74977", latency: 0 ms
+Request 306: req: "cmd=countprimes;n=929777", resp: "73458", latency: 0 ms
+Request 308: req: "cmd=countprimes;n=709907", resp: "57297", latency: 0 ms
+Request 285: req: "cmd=countprimes;n=894078", resp: "70849", latency: 1166 ms
+Request 289: req: "cmd=countprimes;n=754095", resp: "60544", latency: 1080 ms
+Request 310: req: "cmd=countprimes;n=848393", resp: "67497", latency: 39 ms
+Request 312: req: "cmd=countprimes;n=779069", resp: "62402", latency: 0 ms
+Request 291: req: "cmd=countprimes;n=851091", resp: "67694", latency: 1079 ms
+Request 283: req: "cmd=countprimes;n=766249", resp: "61456", latency: 1566 ms
+Request 314: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 39 ms
+Request 295: req: "cmd=countprimes;n=730276", resp: "58803", latency: 989 ms
+Request 316: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 287: req: "cmd=countprimes;n=805088", resp: "64328", latency: 1532 ms
+ Request 299: req: "cmd=countprimes;n=759806", resp: "60966", latency: 932 ms
+Request 318: req: "cmd=countprimes;n=780123", resp: "62475", latency: 39 ms
+Request 293: req: "cmd=countprimes;n=711813", resp: "57443", latency: 1320 ms
+Request 301: req: "cmd=countprimes;n=807566", resp: "64509", latency: 979 ms
+Request 320: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 322: req: "cmd=countprimes;n=830237", resp: "66175", latency: 0 ms
+Request 324: req: "cmd=countprimes;n=950923", resp: "74977", latency: 0 ms
+Request 326: req: "cmd=countprimes;n=929777", resp: "73458", latency: 0 ms
+Request 303: req: "cmd=countprimes;n=919480", resp: "72699", latency: 1170 ms
+Request 328: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 297: req: "cmd=countprimes;n=996471", resp: "78241", latency: 1614 ms
+Request 330: req: "cmd=countprimes;n=848393", resp: "67497", latency: 39 ms
+Request 309: req: "cmd=countprimes;n=750827", resp: "60296", latency: 1139 ms
+Request 315: req: "cmd=countprimes;n=717415", resp: "57849", latency: 839 ms
+Request 305: req: "cmd=countprimes;n=951498", resp: "75023", latency: 1343 ms
+Request 332: req: "cmd=countprimes;n=779069", resp: "62402", latency: 39 ms
+Request 334: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 0 ms
+Request 307: req: "cmd=countprimes;n=975545", resp: "76764", latency: 1443 ms
+Request 336: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 338: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 340: req: "cmd=countprimes;n=990611", resp: "77823", latency: 0 ms
+Request 313: req: "cmd=countprimes;n=989965", resp: "77773", latency: 1394 ms
+Request 317: req: "cmd=countprimes;n=902861", resp: "71482", latency: 1220 ms
+Request 311: req: "cmd=countprimes;n=901792", resp: "71407", latency: 1569 ms
+Request 323: req: "cmd=countprimes;n=775206", resp: "62119", latency: 986 ms
+Request 342: req: "cmd=countprimes;n=830237", resp: "66175", latency: 39 ms
+Request 321: req: "cmd=countprimes;n=802694", resp: "64150", latency: 1135 ms
+Request 344: req: "cmd=countprimes;n=950923", resp: "74977", latency: 39 ms
+Request 319: req: "cmd=countprimes;n=953628", resp: "75171", latency: 1308 ms
+Request 346: req: "cmd=countprimes;n=929777", resp: "73458", latency: 0 ms
+Request 327: req: "cmd=countprimes;n=832694", resp: "66371", latency: 990 ms
+Request 348: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 350: req: "cmd=countprimes;n=848393", resp: "67497", latency: 0 ms
+Request 329: req: "cmd=countprimes;n=752446", resp: "60423", latency: 1084 ms
+Request 325: req: "cmd=countprimes;n=879038", resp: "69752", latency: 1347 ms
+Request 352: req: "cmd=countprimes;n=779069", resp: "62402", latency: 39 ms
+Request 354: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 39 ms
+Request 333: req: "cmd=countprimes;n=822972", resp: "65645", latency: 1132 ms
+Request 331: req: "cmd=countprimes;n=841488", resp: "67000", latency: 1236 ms
+Request 335: req: "cmd=countprimes;n=870734", resp: "69151", latency: 1039 ms
+Request 356: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 339: req: "cmd=countprimes;n=793434", resp: "63460", latency: 983 ms
+Request 358: req: "cmd=countprimes;n=780123", resp: "62475", latency: 33 ms
+Request 337: req: "cmd=countprimes;n=852580", resp: "67803", latency: 1123 ms
+Request 360: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 362: req: "cmd=countprimes;n=830237", resp: "66175", latency: 0 ms
+Request 341: req: "cmd=countprimes;n=807145", resp: "64476", latency: 1109 ms
+Request 345: req: "cmd=countprimes;n=775280", resp: "62124", latency: 935 ms
+Request 364: req: "cmd=countprimes;n=950923", resp: "74977", latency: 39 ms
+Request 366: req: "cmd=countprimes;n=929777", resp: "73458", latency: 0 ms
+Request 347: req: "cmd=countprimes;n=868180", resp: "68957", latency: 1019 ms
+Request 368: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 370: req: "cmd=countprimes;n=848393", resp: "67497", latency: 0 ms
+Request 349: req: "cmd=countprimes;n=703730", resp: "56823", latency: 1101 ms
+Request 372: req: "cmd=countprimes;n=779069", resp: "62402", latency: 0 ms
+Request 355: req: "cmd=countprimes;n=713708", resp: "57584", latency: 879 ms
+ Request 343: req: "cmd=countprimes;n=951299", resp: "75006", latency: 1479 ms
+Request 374: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 0 ms
+Request 351: req: "cmd=countprimes;n=922473", resp: "72915", latency: 1238 ms
+Request 353: req: "cmd=countprimes;n=800775", resp: "64021", latency: 1179 ms
+Request 376: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 378: req: "cmd=countprimes;n=780123", resp: "62475", latency: 0 ms
+Request 359: req: "cmd=countprimes;n=772039", resp: "61888", latency: 979 ms
+Request 380: req: "cmd=countprimes;n=990611", resp: "77823", latency: 39 ms
+Request 357: req: "cmd=countprimes;n=784265", resp: "62783", latency: 1197 ms
+Request 382: req: "cmd=countprimes;n=830237", resp: "66175", latency: 39 ms
+Request 365: req: "cmd=countprimes;n=786363", resp: "62942", latency: 979 ms
+Request 363: req: "cmd=countprimes;n=805668", resp: "64375", latency: 1088 ms
+Request 384: req: "cmd=countprimes;n=950923", resp: "74977", latency: 39 ms
+Request 386: req: "cmd=countprimes;n=929777", resp: "73458", latency: 0 ms
+Request 361: req: "cmd=countprimes;n=985939", resp: "77487", latency: 1285 ms
+Request 367: req: "cmd=countprimes;n=807760", resp: "64521", latency: 985 ms
+Request 388: req: "cmd=countprimes;n=709907", resp: "57297", latency: 0 ms
+Request 390: req: "cmd=countprimes;n=848393", resp: "67497", latency: 39 ms
+Request 371: req: "cmd=countprimes;n=890124", resp: "70565", latency: 1086 ms
+Request 392: req: "cmd=countprimes;n=779069", resp: "62402", latency: 36 ms
+Request 394: req: "cmd=countprimes;n=1000011", resp: "78499", latency: 0 ms
+Request 369: req: "cmd=countprimes;n=984072", resp: "77354", latency: 1296 ms
+Request 373: req: "cmd=countprimes;n=886323", resp: "70286", latency: 1169 ms
+Request 396: req: "cmd=countprimes;n=834567", resp: "66499", latency: 39 ms
+Request 377: req: "cmd=countprimes;n=816405", resp: "65152", latency: 1029 ms
+Request 379: req: "cmd=countprimes;n=824325", resp: "65746", latency: 979 ms
+Request 398: req: "cmd=countprimes;n=780123", resp: "62475", latency: 39 ms
+Request 400: req: "cmd=countprimes;n=990611", resp: "77823", latency: 0 ms
+Request 383: req: "cmd=countprimes;n=700457", resp: "56579", latency: 866 ms
+Request 375: req: "cmd=countprimes;n=914686", resp: "72342", latency: 1338 ms
+Request 402: req: "cmd=countprimes;n=830237", resp: "66175", latency: 39 ms
+Request 385: req: "cmd=countprimes;n=757693", resp: "60800", latency: 912 ms
+Request 381: req: "cmd=countprimes;n=895250", resp: "70938", latency: 1179 ms
+Request 404: req: "cmd=countprimes;n=950923", resp: "74977", latency: 39 ms
+Request 406: req: "cmd=countprimes;n=929777", resp: "73458", latency: 0 ms
+Request 387: req: "cmd=countprimes;n=800320", resp: "63977", latency: 979 ms
+Request 389: req: "cmd=countprimes;n=771825", resp: "61872", latency: 922 ms
+Request 408: req: "cmd=countprimes;n=709907", resp: "57297", latency: 39 ms
+Request 409: req: "cmd=lastrequest", resp: "ack", latency: 79 ms
+Request 393: req: "cmd=countprimes;n=813594", resp: "64949", latency: 1054 ms
+Request 391: req: "cmd=countprimes;n=891220", resp: "70637", latency: 1216 ms
+Request 397: req: "cmd=countprimes;n=870445", resp: "69132", latency: 1127 ms
+Request 395: req: "cmd=countprimes;n=962627", resp: "75817", latency: 1236 ms
+Request 399: req: "cmd=countprimes;n=824322", resp: "65746", latency: 1053 ms
+Request 401: req: "cmd=countprimes;n=820680", resp: "65468", latency: 969 ms
+Request 405: req: "cmd=countprimes;n=825468", resp: "65837", latency: 919 ms
+Request 403: req: "cmd=countprimes;n=910549", resp: "72060", latency: 1129 ms
+Request 407: req: "cmd=countprimes;n=898659", resp: "71189", latency: 992 ms
+
+--- Results Summary ---
+
+[0] Request: cmd=countprimes;n=848393, success: YES, latency: 840
+[1] Request: cmd=countprimes;n=779069, success: YES, latency: 776
+[2] Request: cmd=countprimes;n=1000011, success: YES, latency: 1125
+[3] Request: cmd=countprimes;n=834567, success: YES, latency: 939
+[4] Request: cmd=countprimes;n=780123, success: YES, latency: 925
+[5] Request: cmd=countprimes;n=990611, success: YES, latency: 1163
+[6] Request: cmd=countprimes;n=830237, success: YES, latency: 889
+[7] Request: cmd=countprimes;n=950923, success: YES, latency: 1249
+[8] Request: cmd=countprimes;n=929777, success: YES, latency: 1109
+[9] Request: cmd=countprimes;n=709907, success: YES, latency: 803
+[10] Request: cmd=countprimes;n=848393, success: YES, latency: 0
+[11] Request: cmd=countprimes;n=953327, success: YES, latency: 1417
+[12] Request: cmd=countprimes;n=779069, success: YES, latency: 0
+[13] Request: cmd=countprimes;n=927387, success: YES, latency: 1591
+[14] Request: cmd=countprimes;n=1000011, success: YES, latency: 1267
+[15] Request: cmd=countprimes;n=826171, success: YES, latency: 979
+[16] Request: cmd=countprimes;n=834567, success: YES, latency: 25
+[17] Request: cmd=countprimes;n=777675, success: YES, latency: 1279
+[18] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[19] Request: cmd=countprimes;n=853382, success: YES, latency: 1196
+[20] Request: cmd=countprimes;n=990611, success: YES, latency: 1776
+[21] Request: cmd=countprimes;n=821480, success: YES, latency: 1096
+[22] Request: cmd=countprimes;n=830237, success: YES, latency: 0
+[23] Request: cmd=countprimes;n=935140, success: YES, latency: 1339
+[24] Request: cmd=countprimes;n=950923, success: YES, latency: 1754
+[25] Request: cmd=countprimes;n=790994, success: YES, latency: 1439
+[26] Request: cmd=countprimes;n=929777, success: YES, latency: 1836
+[27] Request: cmd=countprimes;n=842979, success: YES, latency: 1019
+[28] Request: cmd=countprimes;n=709907, success: YES, latency: 9
+[29] Request: cmd=countprimes;n=875015, success: YES, latency: 1640
+[30] Request: cmd=countprimes;n=848393, success: YES, latency: 0
+[31] Request: cmd=countprimes;n=972434, success: YES, latency: 1264
+[32] Request: cmd=countprimes;n=779069, success: YES, latency: 0
+[33] Request: cmd=countprimes;n=851406, success: YES, latency: 1510
+[34] Request: cmd=countprimes;n=1000011, success: YES, latency: 0
+[35] Request: cmd=countprimes;n=784551, success: YES, latency: 1026
+[36] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[37] Request: cmd=countprimes;n=926742, success: YES, latency: 1389
+[38] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[39] Request: cmd=countprimes;n=885511, success: YES, latency: 1139
+[40] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[41] Request: cmd=countprimes;n=775152, success: YES, latency: 1189
+[42] Request: cmd=countprimes;n=830237, success: YES, latency: 0
+[43] Request: cmd=countprimes;n=972924, success: YES, latency: 1654
+[44] Request: cmd=countprimes;n=950923, success: YES, latency: 0
+[45] Request: cmd=countprimes;n=994836, success: YES, latency: 1554
+[46] Request: cmd=countprimes;n=929777, success: YES, latency: 39
+[47] Request: cmd=countprimes;n=943065, success: YES, latency: 1329
+[48] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+[49] Request: cmd=countprimes;n=970650, success: YES, latency: 2129
+[50] Request: cmd=countprimes;n=848393, success: YES, latency: 39
+[51] Request: cmd=countprimes;n=793044, success: YES, latency: 1426
+[52] Request: cmd=countprimes;n=779069, success: YES, latency: 0
+[53] Request: cmd=countprimes;n=918950, success: YES, latency: 1676
+[54] Request: cmd=countprimes;n=1000011, success: YES, latency: 76
+[55] Request: cmd=countprimes;n=969652, success: YES, latency: 1230
+[56] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[57] Request: cmd=countprimes;n=905195, success: YES, latency: 1210
+[58] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[59] Request: cmd=countprimes;n=841643, success: YES, latency: 1673
+[60] Request: cmd=countprimes;n=990611, success: YES, latency: 0
+[61] Request: cmd=countprimes;n=730210, success: YES, latency: 839
+[62] Request: cmd=countprimes;n=830237, success: YES, latency: 76
+[63] Request: cmd=countprimes;n=830251, success: YES, latency: 1001
+[64] Request: cmd=countprimes;n=950923, success: YES, latency: 79
+[65] Request: cmd=countprimes;n=883266, success: YES, latency: 1719
+[66] Request: cmd=countprimes;n=929777, success: YES, latency: 79
+[67] Request: cmd=countprimes;n=973904, success: YES, latency: 1437
+[68] Request: cmd=countprimes;n=709907, success: YES, latency: 79
+[69] Request: cmd=countprimes;n=989982, success: YES, latency: 1580
+[70] Request: cmd=countprimes;n=848393, success: YES, latency: 79
+[71] Request: cmd=countprimes;n=843103, success: YES, latency: 1539
+[72] Request: cmd=countprimes;n=779069, success: YES, latency: 79
+[73] Request: cmd=countprimes;n=959593, success: YES, latency: 1279
+[74] Request: cmd=countprimes;n=1000011, success: YES, latency: 39
+[75] Request: cmd=countprimes;n=778147, success: YES, latency: 979
+[76] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[77] Request: cmd=countprimes;n=941509, success: YES, latency: 1375
+[78] Request: cmd=countprimes;n=780123, success: YES, latency: 76
+[79] Request: cmd=countprimes;n=864610, success: YES, latency: 1041
+[80] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[81] Request: cmd=countprimes;n=704212, success: YES, latency: 879
+[82] Request: cmd=countprimes;n=830237, success: YES, latency: 40
+[83] Request: cmd=countprimes;n=915912, success: YES, latency: 1466
+[84] Request: cmd=countprimes;n=950923, success: YES, latency: 0
+[85] Request: cmd=countprimes;n=819647, success: YES, latency: 984
+[86] Request: cmd=countprimes;n=929777, success: YES, latency: 0
+[87] Request: cmd=countprimes;n=947454, success: YES, latency: 1179
+[88] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+[89] Request: cmd=countprimes;n=900446, success: YES, latency: 1166
+[90] Request: cmd=countprimes;n=848393, success: YES, latency: 39
+[91] Request: cmd=countprimes;n=700342, success: YES, latency: 1179
+[92] Request: cmd=countprimes;n=779069, success: YES, latency: 39
+[93] Request: cmd=countprimes;n=848073, success: YES, latency: 1651
+[94] Request: cmd=countprimes;n=1000011, success: YES, latency: 0
+[95] Request: cmd=countprimes;n=960281, success: YES, latency: 1479
+[96] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[97] Request: cmd=countprimes;n=773173, success: YES, latency: 1172
+[98] Request: cmd=countprimes;n=780123, success: YES, latency: 39
+[99] Request: cmd=countprimes;n=797561, success: YES, latency: 1072
+[100] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[101] Request: cmd=countprimes;n=961142, success: YES, latency: 1416
+[102] Request: cmd=countprimes;n=830237, success: YES, latency: 39
+[103] Request: cmd=countprimes;n=757320, success: YES, latency: 1316
+[104] Request: cmd=countprimes;n=950923, success: YES, latency: 34
+[105] Request: cmd=countprimes;n=870253, success: YES, latency: 1279
+[106] Request: cmd=countprimes;n=929777, success: YES, latency: 39
+[107] Request: cmd=countprimes;n=771585, success: YES, latency: 951
+[108] Request: cmd=countprimes;n=709907, success: YES, latency: 0
+[109] Request: cmd=countprimes;n=990263, success: YES, latency: 1239
+[110] Request: cmd=countprimes;n=848393, success: YES, latency: 0
+[111] Request: cmd=countprimes;n=940954, success: YES, latency: 1628
+[112] Request: cmd=countprimes;n=779069, success: YES, latency: 39
+[113] Request: cmd=countprimes;n=834391, success: YES, latency: 1079
+[114] Request: cmd=countprimes;n=1000011, success: YES, latency: 0
+[115] Request: cmd=countprimes;n=724133, success: YES, latency: 979
+[116] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[117] Request: cmd=countprimes;n=796016, success: YES, latency: 1079
+[118] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[119] Request: cmd=countprimes;n=852382, success: YES, latency: 1058
+[120] Request: cmd=countprimes;n=990611, success: YES, latency: 0
+[121] Request: cmd=countprimes;n=979851, success: YES, latency: 1265
+[122] Request: cmd=countprimes;n=830237, success: YES, latency: 0
+[123] Request: cmd=countprimes;n=732717, success: YES, latency: 1039
+[124] Request: cmd=countprimes;n=950923, success: YES, latency: 39
+[125] Request: cmd=countprimes;n=865380, success: YES, latency: 1145
+[126] Request: cmd=countprimes;n=929777, success: YES, latency: 0
+[127] Request: cmd=countprimes;n=911969, success: YES, latency: 1339
+[128] Request: cmd=countprimes;n=709907, success: YES, latency: 26
+[129] Request: cmd=countprimes;n=864232, success: YES, latency: 1453
+[130] Request: cmd=countprimes;n=848393, success: YES, latency: 39
+[131] Request: cmd=countprimes;n=944340, success: YES, latency: 1279
+[132] Request: cmd=countprimes;n=779069, success: YES, latency: 0
+[133] Request: cmd=countprimes;n=862085, success: YES, latency: 1139
+[134] Request: cmd=countprimes;n=1000011, success: YES, latency: 39
+[135] Request: cmd=countprimes;n=989152, success: YES, latency: 1358
+[136] Request: cmd=countprimes;n=834567, success: YES, latency: 0
+[137] Request: cmd=countprimes;n=880956, success: YES, latency: 1039
+[138] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[139] Request: cmd=countprimes;n=876285, success: YES, latency: 1063
+[140] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[141] Request: cmd=countprimes;n=833497, success: YES, latency: 1261
+[142] Request: cmd=countprimes;n=830237, success: YES, latency: 0
+[143] Request: cmd=countprimes;n=878886, success: YES, latency: 1121
+[144] Request: cmd=countprimes;n=950923, success: YES, latency: 39
+[145] Request: cmd=countprimes;n=815470, success: YES, latency: 1299
+[146] Request: cmd=countprimes;n=929777, success: YES, latency: 0
+[147] Request: cmd=countprimes;n=872695, success: YES, latency: 1448
+[148] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+[149] Request: cmd=countprimes;n=787099, success: YES, latency: 1229
+[150] Request: cmd=countprimes;n=848393, success: YES, latency: 39
+[151] Request: cmd=countprimes;n=756817, success: YES, latency: 938
+[152] Request: cmd=countprimes;n=779069, success: YES, latency: 0
+[153] Request: cmd=countprimes;n=756019, success: YES, latency: 1039
+[154] Request: cmd=countprimes;n=1000011, success: YES, latency: 39
+[155] Request: cmd=countprimes;n=883832, success: YES, latency: 1169
+[156] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[157] Request: cmd=countprimes;n=896998, success: YES, latency: 1379
+[158] Request: cmd=countprimes;n=780123, success: YES, latency: 39
+[159] Request: cmd=countprimes;n=842959, success: YES, latency: 1110
+[160] Request: cmd=countprimes;n=990611, success: YES, latency: 0
+[161] Request: cmd=countprimes;n=726947, success: YES, latency: 1037
+[162] Request: cmd=countprimes;n=830237, success: YES, latency: 39
+[163] Request: cmd=countprimes;n=927281, success: YES, latency: 1192
+[164] Request: cmd=countprimes;n=950923, success: YES, latency: 0
+[165] Request: cmd=countprimes;n=963031, success: YES, latency: 1239
+[166] Request: cmd=countprimes;n=929777, success: YES, latency: 39
+[167] Request: cmd=countprimes;n=977015, success: YES, latency: 1479
+[168] Request: cmd=countprimes;n=709907, success: YES, latency: 0
+[169] Request: cmd=countprimes;n=952738, success: YES, latency: 1239
+[170] Request: cmd=countprimes;n=848393, success: YES, latency: 39
+[171] Request: cmd=countprimes;n=969452, success: YES, latency: 1264
+[172] Request: cmd=countprimes;n=779069, success: YES, latency: 39
+[173] Request: cmd=countprimes;n=976925, success: YES, latency: 1379
+[174] Request: cmd=countprimes;n=1000011, success: YES, latency: 39
+[175] Request: cmd=countprimes;n=862180, success: YES, latency: 1140
+[176] Request: cmd=countprimes;n=834567, success: YES, latency: 40
+[177] Request: cmd=countprimes;n=817389, success: YES, latency: 1245
+[178] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[179] Request: cmd=countprimes;n=911585, success: YES, latency: 1647
+[180] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[181] Request: cmd=countprimes;n=782690, success: YES, latency: 1045
+[182] Request: cmd=countprimes;n=830237, success: YES, latency: 39
+[183] Request: cmd=countprimes;n=943489, success: YES, latency: 1250
+[184] Request: cmd=countprimes;n=950923, success: YES, latency: 0
+[185] Request: cmd=countprimes;n=954846, success: YES, latency: 1150
+[186] Request: cmd=countprimes;n=929777, success: YES, latency: 39
+[187] Request: cmd=countprimes;n=968512, success: YES, latency: 1435
+[188] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+[189] Request: cmd=countprimes;n=876940, success: YES, latency: 1147
+[190] Request: cmd=countprimes;n=848393, success: YES, latency: 39
+[191] Request: cmd=countprimes;n=984930, success: YES, latency: 1444
+[192] Request: cmd=countprimes;n=779069, success: YES, latency: 0
+[193] Request: cmd=countprimes;n=873909, success: YES, latency: 1339
+[194] Request: cmd=countprimes;n=1000011, success: YES, latency: 39
+[195] Request: cmd=countprimes;n=835169, success: YES, latency: 1079
+[196] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[197] Request: cmd=countprimes;n=898074, success: YES, latency: 1379
+[198] Request: cmd=countprimes;n=780123, success: YES, latency: 39
+[199] Request: cmd=countprimes;n=998878, success: YES, latency: 1479
+[200] Request: cmd=countprimes;n=990611, success: YES, latency: 0
+[201] Request: cmd=countprimes;n=975083, success: YES, latency: 1478
+[202] Request: cmd=countprimes;n=830237, success: YES, latency: 39
+[203] Request: cmd=countprimes;n=937998, success: YES, latency: 1479
+[204] Request: cmd=countprimes;n=950923, success: YES, latency: 0
+[205] Request: cmd=countprimes;n=724711, success: YES, latency: 990
+[206] Request: cmd=countprimes;n=929777, success: YES, latency: 39
+[207] Request: cmd=countprimes;n=883835, success: YES, latency: 1178
+[208] Request: cmd=countprimes;n=709907, success: YES, latency: 0
+[209] Request: cmd=countprimes;n=845933, success: YES, latency: 1038
+[210] Request: cmd=countprimes;n=848393, success: YES, latency: 0
+[211] Request: cmd=countprimes;n=889044, success: YES, latency: 1137
+[212] Request: cmd=countprimes;n=779069, success: YES, latency: 39
+[213] Request: cmd=countprimes;n=953524, success: YES, latency: 1379
+[214] Request: cmd=countprimes;n=1000011, success: YES, latency: 0
+[215] Request: cmd=countprimes;n=772910, success: YES, latency: 937
+[216] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[217] Request: cmd=countprimes;n=919447, success: YES, latency: 1179
+[218] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[219] Request: cmd=countprimes;n=735140, success: YES, latency: 1239
+[220] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[221] Request: cmd=countprimes;n=766138, success: YES, latency: 1357
+[222] Request: cmd=countprimes;n=830237, success: YES, latency: 0
+[223] Request: cmd=countprimes;n=938375, success: YES, latency: 1139
+[224] Request: cmd=countprimes;n=950923, success: YES, latency: 39
+[225] Request: cmd=countprimes;n=799761, success: YES, latency: 1372
+[226] Request: cmd=countprimes;n=929777, success: YES, latency: 39
+[227] Request: cmd=countprimes;n=944774, success: YES, latency: 1579
+[228] Request: cmd=countprimes;n=709907, success: YES, latency: 0
+[229] Request: cmd=countprimes;n=730182, success: YES, latency: 1261
+[230] Request: cmd=countprimes;n=848393, success: YES, latency: 39
+[231] Request: cmd=countprimes;n=743907, success: YES, latency: 1231
+[232] Request: cmd=countprimes;n=779069, success: YES, latency: 0
+[233] Request: cmd=countprimes;n=909301, success: YES, latency: 1123
+[234] Request: cmd=countprimes;n=1000011, success: YES, latency: 39
+[235] Request: cmd=countprimes;n=713570, success: YES, latency: 1309
+[236] Request: cmd=countprimes;n=834567, success: YES, latency: 0
+[237] Request: cmd=countprimes;n=872160, success: YES, latency: 1469
+[238] Request: cmd=countprimes;n=780123, success: YES, latency: 39
+[239] Request: cmd=countprimes;n=973005, success: YES, latency: 1779
+[240] Request: cmd=countprimes;n=990611, success: YES, latency: 0
+[241] Request: cmd=countprimes;n=860259, success: YES, latency: 1555
+[242] Request: cmd=countprimes;n=830237, success: YES, latency: 0
+[243] Request: cmd=countprimes;n=904177, success: YES, latency: 1659
+[244] Request: cmd=countprimes;n=950923, success: YES, latency: 39
+[245] Request: cmd=countprimes;n=708009, success: YES, latency: 1355
+[246] Request: cmd=countprimes;n=929777, success: YES, latency: 39
+[247] Request: cmd=countprimes;n=890500, success: YES, latency: 1856
+[248] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+[249] Request: cmd=countprimes;n=881902, success: YES, latency: 1479
+[250] Request: cmd=countprimes;n=848393, success: YES, latency: 0
+[251] Request: cmd=countprimes;n=872786, success: YES, latency: 1643
+[252] Request: cmd=countprimes;n=779069, success: YES, latency: 39
+[253] Request: cmd=countprimes;n=817363, success: YES, latency: 1208
+[254] Request: cmd=countprimes;n=1000011, success: YES, latency: 33
+[255] Request: cmd=countprimes;n=811042, success: YES, latency: 979
+[256] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[257] Request: cmd=countprimes;n=994155, success: YES, latency: 1785
+[258] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[259] Request: cmd=countprimes;n=710917, success: YES, latency: 1069
+[260] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[261] Request: cmd=countprimes;n=706490, success: YES, latency: 1325
+[262] Request: cmd=countprimes;n=830237, success: YES, latency: 0
+[263] Request: cmd=countprimes;n=988310, success: YES, latency: 1939
+[264] Request: cmd=countprimes;n=950923, success: YES, latency: 0
+[265] Request: cmd=countprimes;n=755491, success: YES, latency: 1139
+[266] Request: cmd=countprimes;n=929777, success: YES, latency: 0
+[267] Request: cmd=countprimes;n=737168, success: YES, latency: 922
+[268] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+[269] Request: cmd=countprimes;n=763173, success: YES, latency: 1126
+[270] Request: cmd=countprimes;n=848393, success: YES, latency: 0
+[271] Request: cmd=countprimes;n=940224, success: YES, latency: 1347
+[272] Request: cmd=countprimes;n=779069, success: YES, latency: 39
+[273] Request: cmd=countprimes;n=981091, success: YES, latency: 1237
+[274] Request: cmd=countprimes;n=1000011, success: YES, latency: 0
+[275] Request: cmd=countprimes;n=706834, success: YES, latency: 826
+[276] Request: cmd=countprimes;n=834567, success: YES, latency: 9
+[277] Request: cmd=countprimes;n=827686, success: YES, latency: 1047
+[278] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[279] Request: cmd=countprimes;n=730450, success: YES, latency: 925
+[280] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[281] Request: cmd=countprimes;n=777976, success: YES, latency: 928
+[282] Request: cmd=countprimes;n=830237, success: YES, latency: 0
+[283] Request: cmd=countprimes;n=766249, success: YES, latency: 1566
+[284] Request: cmd=countprimes;n=950923, success: YES, latency: 39
+[285] Request: cmd=countprimes;n=894078, success: YES, latency: 1166
+[286] Request: cmd=countprimes;n=929777, success: YES, latency: 39
+[287] Request: cmd=countprimes;n=805088, success: YES, latency: 1532
+[288] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+[289] Request: cmd=countprimes;n=754095, success: YES, latency: 1080
+[290] Request: cmd=countprimes;n=848393, success: YES, latency: 36
+[291] Request: cmd=countprimes;n=851091, success: YES, latency: 1079
+[292] Request: cmd=countprimes;n=779069, success: YES, latency: 39
+[293] Request: cmd=countprimes;n=711813, success: YES, latency: 1320
+[294] Request: cmd=countprimes;n=1000011, success: YES, latency: 0
+[295] Request: cmd=countprimes;n=730276, success: YES, latency: 989
+[296] Request: cmd=countprimes;n=834567, success: YES, latency: 0
+[297] Request: cmd=countprimes;n=996471, success: YES, latency: 1614
+[298] Request: cmd=countprimes;n=780123, success: YES, latency: 39
+[299] Request: cmd=countprimes;n=759806, success: YES, latency: 932
+[300] Request: cmd=countprimes;n=990611, success: YES, latency: 40
+[301] Request: cmd=countprimes;n=807566, success: YES, latency: 979
+[302] Request: cmd=countprimes;n=830237, success: YES, latency: 39
+[303] Request: cmd=countprimes;n=919480, success: YES, latency: 1170
+[304] Request: cmd=countprimes;n=950923, success: YES, latency: 0
+[305] Request: cmd=countprimes;n=951498, success: YES, latency: 1343
+[306] Request: cmd=countprimes;n=929777, success: YES, latency: 0
+[307] Request: cmd=countprimes;n=975545, success: YES, latency: 1443
+[308] Request: cmd=countprimes;n=709907, success: YES, latency: 0
+[309] Request: cmd=countprimes;n=750827, success: YES, latency: 1139
+[310] Request: cmd=countprimes;n=848393, success: YES, latency: 39
+[311] Request: cmd=countprimes;n=901792, success: YES, latency: 1569
+[312] Request: cmd=countprimes;n=779069, success: YES, latency: 0
+[313] Request: cmd=countprimes;n=989965, success: YES, latency: 1394
+[314] Request: cmd=countprimes;n=1000011, success: YES, latency: 39
+[315] Request: cmd=countprimes;n=717415, success: YES, latency: 839
+[316] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[317] Request: cmd=countprimes;n=902861, success: YES, latency: 1220
+[318] Request: cmd=countprimes;n=780123, success: YES, latency: 39
+[319] Request: cmd=countprimes;n=953628, success: YES, latency: 1308
+[320] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[321] Request: cmd=countprimes;n=802694, success: YES, latency: 1135
+[322] Request: cmd=countprimes;n=830237, success: YES, latency: 0
+[323] Request: cmd=countprimes;n=775206, success: YES, latency: 986
+[324] Request: cmd=countprimes;n=950923, success: YES, latency: 0
+[325] Request: cmd=countprimes;n=879038, success: YES, latency: 1347
+[326] Request: cmd=countprimes;n=929777, success: YES, latency: 0
+[327] Request: cmd=countprimes;n=832694, success: YES, latency: 990
+[328] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+[329] Request: cmd=countprimes;n=752446, success: YES, latency: 1084
+[330] Request: cmd=countprimes;n=848393, success: YES, latency: 39
+[331] Request: cmd=countprimes;n=841488, success: YES, latency: 1236
+[332] Request: cmd=countprimes;n=779069, success: YES, latency: 39
+[333] Request: cmd=countprimes;n=822972, success: YES, latency: 1132
+[334] Request: cmd=countprimes;n=1000011, success: YES, latency: 0
+[335] Request: cmd=countprimes;n=870734, success: YES, latency: 1039
+[336] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[337] Request: cmd=countprimes;n=852580, success: YES, latency: 1123
+[338] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[339] Request: cmd=countprimes;n=793434, success: YES, latency: 983
+[340] Request: cmd=countprimes;n=990611, success: YES, latency: 0
+[341] Request: cmd=countprimes;n=807145, success: YES, latency: 1109
+[342] Request: cmd=countprimes;n=830237, success: YES, latency: 39
+[343] Request: cmd=countprimes;n=951299, success: YES, latency: 1479
+[344] Request: cmd=countprimes;n=950923, success: YES, latency: 39
+[345] Request: cmd=countprimes;n=775280, success: YES, latency: 935
+[346] Request: cmd=countprimes;n=929777, success: YES, latency: 0
+[347] Request: cmd=countprimes;n=868180, success: YES, latency: 1019
+[348] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+[349] Request: cmd=countprimes;n=703730, success: YES, latency: 1101
+[350] Request: cmd=countprimes;n=848393, success: YES, latency: 0
+[351] Request: cmd=countprimes;n=922473, success: YES, latency: 1238
+[352] Request: cmd=countprimes;n=779069, success: YES, latency: 39
+[353] Request: cmd=countprimes;n=800775, success: YES, latency: 1179
+[354] Request: cmd=countprimes;n=1000011, success: YES, latency: 39
+[355] Request: cmd=countprimes;n=713708, success: YES, latency: 879
+[356] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[357] Request: cmd=countprimes;n=784265, success: YES, latency: 1197
+[358] Request: cmd=countprimes;n=780123, success: YES, latency: 33
+[359] Request: cmd=countprimes;n=772039, success: YES, latency: 979
+[360] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[361] Request: cmd=countprimes;n=985939, success: YES, latency: 1285
+[362] Request: cmd=countprimes;n=830237, success: YES, latency: 0
+[363] Request: cmd=countprimes;n=805668, success: YES, latency: 1088
+[364] Request: cmd=countprimes;n=950923, success: YES, latency: 39
+[365] Request: cmd=countprimes;n=786363, success: YES, latency: 979
+[366] Request: cmd=countprimes;n=929777, success: YES, latency: 0
+[367] Request: cmd=countprimes;n=807760, success: YES, latency: 985
+[368] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+[369] Request: cmd=countprimes;n=984072, success: YES, latency: 1296
+[370] Request: cmd=countprimes;n=848393, success: YES, latency: 0
+[371] Request: cmd=countprimes;n=890124, success: YES, latency: 1086
+[372] Request: cmd=countprimes;n=779069, success: YES, latency: 0
+[373] Request: cmd=countprimes;n=886323, success: YES, latency: 1169
+[374] Request: cmd=countprimes;n=1000011, success: YES, latency: 0
+[375] Request: cmd=countprimes;n=914686, success: YES, latency: 1338
+[376] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[377] Request: cmd=countprimes;n=816405, success: YES, latency: 1029
+[378] Request: cmd=countprimes;n=780123, success: YES, latency: 0
+[379] Request: cmd=countprimes;n=824325, success: YES, latency: 979
+[380] Request: cmd=countprimes;n=990611, success: YES, latency: 39
+[381] Request: cmd=countprimes;n=895250, success: YES, latency: 1179
+[382] Request: cmd=countprimes;n=830237, success: YES, latency: 39
+[383] Request: cmd=countprimes;n=700457, success: YES, latency: 866
+[384] Request: cmd=countprimes;n=950923, success: YES, latency: 39
+[385] Request: cmd=countprimes;n=757693, success: YES, latency: 912
+[386] Request: cmd=countprimes;n=929777, success: YES, latency: 0
+[387] Request: cmd=countprimes;n=800320, success: YES, latency: 979
+[388] Request: cmd=countprimes;n=709907, success: YES, latency: 0
+[389] Request: cmd=countprimes;n=771825, success: YES, latency: 922
+[390] Request: cmd=countprimes;n=848393, success: YES, latency: 39
+[391] Request: cmd=countprimes;n=891220, success: YES, latency: 1216
+[392] Request: cmd=countprimes;n=779069, success: YES, latency: 36
+[393] Request: cmd=countprimes;n=813594, success: YES, latency: 1054
+[394] Request: cmd=countprimes;n=1000011, success: YES, latency: 0
+[395] Request: cmd=countprimes;n=962627, success: YES, latency: 1236
+[396] Request: cmd=countprimes;n=834567, success: YES, latency: 39
+[397] Request: cmd=countprimes;n=870445, success: YES, latency: 1127
+[398] Request: cmd=countprimes;n=780123, success: YES, latency: 39
+[399] Request: cmd=countprimes;n=824322, success: YES, latency: 1053
+[400] Request: cmd=countprimes;n=990611, success: YES, latency: 0
+[401] Request: cmd=countprimes;n=820680, success: YES, latency: 969
+[402] Request: cmd=countprimes;n=830237, success: YES, latency: 39
+[403] Request: cmd=countprimes;n=910549, success: YES, latency: 1129
+[404] Request: cmd=countprimes;n=950923, success: YES, latency: 39
+[405] Request: cmd=countprimes;n=825468, success: YES, latency: 919
+[406] Request: cmd=countprimes;n=929777, success: YES, latency: 0
+[407] Request: cmd=countprimes;n=898659, success: YES, latency: 992
+[408] Request: cmd=countprimes;n=709907, success: YES, latency: 39
+
+*** The results are correct! ***
+
+Avg request latency:  653.15 ms
+Total test time:      21.84 sec
+Workers booted:       1
+Compute used:         22.09 sec
+
+----------------------------------------------------------------
+Grade: 6 of 6 points
+         + 2 points for correctness
+         + 4 points for perf
+         - 0 points for worker usage
+
+         100.0% requests met the 2400 ms latency requirement
+----------------------------------------------------------------
+
+Grading Details:
+  Perf:  * You get one credit per response under 2400 ms.
+         * Perf points are: 4 * (num_credits / max_credits) / 0.9
+              (the 0.9 is for slop: only 90\% of reponses must meet threshold)
+
+  Usage: * No resource penalty up to 25 CPU-seconds.
+         * Linear falloff to minus 50% points at 50 sec
+
+
+Cleaning up after a completed test...
